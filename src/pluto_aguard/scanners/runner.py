@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 from rich.console import Console
-from rich.table import Table
 
 from pluto_aguard.models import Finding, RiskScore, ScanResult, Severity
 from pluto_aguard.scanners.mcp_scanner import scan_directory

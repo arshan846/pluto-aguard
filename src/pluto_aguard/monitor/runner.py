@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import yaml
 from rich.console import Console
-from rich.live import Live
-from rich.table import Table
 
 from pluto_aguard.models import AgentAction, AgentPolicy, Finding, Severity
 

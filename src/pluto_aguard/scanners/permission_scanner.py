@@ -13,7 +13,6 @@ import yaml
 
 from pluto_aguard.models import Finding, Severity
 
-
 # Risk weights for different permission types
 PERMISSION_RISK_WEIGHTS: dict[str, float] = {
     "execute": 1.0,

@@ -16,11 +16,16 @@ import yaml
 
 from pluto_aguard.models import Finding, Severity
 
-
 # Patterns that indicate hardcoded secrets
 SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("AWS Access Key", re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE)),
-    ("AWS Secret Key", re.compile(r"(?:aws_secret_access_key|secret_key)\s*[=:]\s*['\"]?[A-Za-z0-9/+=]{40}", re.IGNORECASE)),
+    (
+        "AWS Secret Key",
+        re.compile(
+            r"(?:aws_secret_access_key|secret_key)\s*[=:]\s*['\"]?[A-Za-z0-9/+=]{40}",
+            re.IGNORECASE,
+        ),
+    ),
     ("Generic API Key", re.compile(r"(?:api[_-]?key|apikey)\s*[=:]\s*['\"]?[A-Za-z0-9_\-]{20,}", re.IGNORECASE)),
     ("Bearer Token", re.compile(r"[Bb]earer\s+[A-Za-z0-9\-._~+/]+=*")),
     ("Private Key", re.compile(r"-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----")),
@@ -206,7 +211,7 @@ def _check_server_auth(
     findings: list[Finding] = []
 
     auth = config.get("auth", config.get("authentication", config.get("credentials", None)))
-    transport = config.get("transport", config.get("type", ""))
+    config.get("transport", config.get("type", ""))
 
     # Remote servers without auth are a problem
     url = config.get("url", config.get("endpoint", ""))

@@ -153,7 +153,7 @@ def simulate_policies(
     if policies is None:
         policies = BUILTIN_POLICIES
 
-    original_findings = scan_agent_permissions(Path("agent-config.yaml"), config)
+    scan_agent_permissions(Path("agent-config.yaml"), config)
     original_risk = calculate_permission_risk_score(config)
     original_score = RiskScore(
         overall=original_risk,
