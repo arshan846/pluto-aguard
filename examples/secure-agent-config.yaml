@@ -1,0 +1,54 @@
+# Example: Secure Agent Configuration
+# This demonstrates best practices for agent security
+
+name: data-analyst-agent
+description: "Agent that queries databases and generates reports"
+
+mcpServers:
+  postgres-server:
+    url: "https://db-server.internal:8443"
+    auth:
+      type: "managed_identity"
+      resource: "https://db-server.internal"
+    permissions:
+      - "sql_query:read"
+    tools:
+      - name: sql_query
+        description: "Execute read-only SQL queries on the analytics database"
+        permissions: "read"
+
+  slack-notifications:
+    url: "https://slack-mcp.internal:8443"
+    auth:
+      type: "oauth2"
+      token_endpoint: "${SLACK_TOKEN_ENDPOINT}"
+      client_id: "${SLACK_CLIENT_ID}"
+      scope: "chat:write"
+    permissions:
+      - "send_message"
+
+tools:
+  - sql_query
+  - send_message
+
+permissions:
+  sql_query:
+    scope: "read"
+    allowed_tables: ["analytics.*", "reports.*"]
+  send_message:
+    scope: "write"
+    allowed_channels: ["#data-reports"]
+
+require_human_approval:
+  - file_write
+  - file_delete
+  - execute
+
+data_access_rules:
+  analytics_db: "read"
+  reports_db: "read"
+
+timeout: 300
+rate_limit:
+  calls_per_minute: 50
+  max_concurrent: 5

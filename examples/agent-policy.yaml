@@ -1,0 +1,31 @@
+# Example: Agent Policy File
+# Used with `aguard monitor --policy agent-policy.yaml`
+
+name: data-analyst-agent
+
+allowed_tools:
+  - sql_query
+  - send_message
+  - create_issue
+
+denied_tools:
+  - execute
+  - shell
+  - sudo
+  - file_delete
+
+max_permissions:
+  sql_query: "read"
+  send_message: "write"
+  create_issue: "write"
+  "*": "read"  # Default: read-only for any unlisted tool
+
+require_human_approval:
+  - file_write
+  - merge_pr
+  - deploy
+
+data_access_rules:
+  analytics_db: "read"
+  user_data: "none"
+  financial_data: "none"

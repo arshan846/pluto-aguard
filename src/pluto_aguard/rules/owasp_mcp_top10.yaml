@@ -1,0 +1,134 @@
+# OWASP MCP Top 10 Rule Definitions
+# Reference: https://owasp.org/www-project-top-10-for-large-language-model-applications/
+#
+# These rules map security checks to the OWASP MCP Top 10 framework.
+# Each rule defines what to check and the severity of violations.
+
+rules:
+  - id: OWASP-MCP-01
+    title: "Excessive Agency"
+    description: >
+      MCP servers or agents with access to tools that can perform actions
+      beyond what is necessary for the intended task.
+    severity: critical
+    checks:
+      - type: permission_scope
+        condition: wildcard_or_full_access
+      - type: unauthenticated_remote_server
+
+  - id: OWASP-MCP-02
+    title: "Tool Poisoning"
+    description: >
+      Malicious or manipulated tool definitions that embed hidden instructions
+      in metadata, descriptions, or schemas to influence agent behavior.
+    severity: critical
+    checks:
+      - type: tool_description_injection
+        patterns:
+          - "ignore previous"
+          - "disregard"
+          - "override"
+          - "system prompt"
+          - "you are now"
+          - "forget your instructions"
+          - "act as"
+          - "pretend to be"
+
+  - id: OWASP-MCP-03
+    title: "Privilege Escalation"
+    description: >
+      Agents that can escalate their permissions beyond their declared scope,
+      either through tool chaining or overly broad permission grants.
+    severity: high
+    checks:
+      - type: wildcard_permissions
+      - type: missing_permission_declarations
+      - type: unauthorized_tool_access
+
+  - id: OWASP-MCP-04
+    title: "Uncontrolled Actions"
+    description: >
+      High-impact agent actions (file writes, command execution, deployments)
+      that lack human-in-the-loop approval gates.
+    severity: high
+    checks:
+      - type: dangerous_tool_without_hitl
+        tools:
+          - execute
+          - shell
+          - file_write
+          - file_delete
+          - sudo
+          - deploy
+          - send_email
+          - database_delete
+
+  - id: OWASP-MCP-05
+    title: "Credential Exposure"
+    description: >
+      Long-lived or overly privileged credentials stored in agent configurations,
+      environment files, or passed through prompts.
+    severity: high
+    checks:
+      - type: static_long_lived_token
+      - type: hardcoded_credentials
+
+  - id: OWASP-MCP-06
+    title: "Insecure Transport"
+    description: >
+      MCP servers communicating over unencrypted channels (HTTP instead of HTTPS),
+      exposing agent communications to interception.
+    severity: high
+    checks:
+      - type: http_transport
+        condition: url_starts_with_http
+
+  - id: OWASP-MCP-07
+    title: "Secret Leakage"
+    description: >
+      API keys, tokens, and other secrets hardcoded in source code, configuration
+      files, or exposed through logging.
+    severity: high
+    checks:
+      - type: secret_patterns
+        patterns:
+          - aws_access_key
+          - aws_secret_key
+          - generic_api_key
+          - bearer_token
+          - private_key
+          - github_token
+          - openai_key
+          - azure_key
+          - connection_string
+          - slack_token
+
+  - id: OWASP-MCP-08
+    title: "Missing Behavioral Monitoring"
+    description: >
+      Agent deployments without logging, auditing, or behavioral monitoring
+      of tool calls and data access patterns.
+    severity: medium
+    checks:
+      - type: no_audit_logging
+      - type: no_behavioral_monitoring
+
+  - id: OWASP-MCP-09
+    title: "Missing Resource Limits"
+    description: >
+      Agents without timeout, rate limiting, or resource consumption bounds,
+      enabling denial-of-service or runaway behavior.
+    severity: medium
+    checks:
+      - type: no_timeout
+      - type: no_rate_limit
+
+  - id: OWASP-MCP-10
+    title: "Supply Chain Risk"
+    description: >
+      Use of unvetted or unverified MCP tools, plugins, or server images
+      from public registries without integrity verification.
+    severity: medium
+    checks:
+      - type: unverified_tool_source
+      - type: no_integrity_check
