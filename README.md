@@ -32,13 +32,15 @@ Guardrails (Azure AI Content Safety, NeMo, Guardrails AI) protect what LLMs **sa
 
 ## What It Does
 
-Pluto AgentGuard is a **CLI tool** that you run against your AI agent project to find security issues, monitor behavior, and simulate policy changes.
+Pluto AgentGuard is a **CLI tool** that you run against your AI agent project to find security issues, monitor behavior, simulate policy changes, and generate launch evidence.
 
 ```mermaid
 graph LR
     A[Your Agent Project] -->|aguard scan| B[🔍 Static Scanner]
     A -->|aguard monitor| C[📡 Behavioral Monitor]
     A -->|aguard whatif| D[🔮 Policy Simulator]
+    A -->|aguard evidence| E2[📋 Launch Readiness]
+    A -->|aguard baseline| F2[📏 Drift Detection]
 
     B --> E[MCP Config Vulnerabilities]
     B --> F[Hardcoded Secrets]
@@ -51,16 +53,21 @@ graph LR
     D --> K[Risk Score Before/After]
     D --> L[Policy Recommendations]
 
-    E & F & G & H & I & J & K & L --> M[📊 Report<br/>HTML / JSON / Terminal]
+    E2 --> N[Launch Readiness Packet]
+    F2 --> O[Baseline vs Current Diff]
+
+    E & F & G & H & I & J & K & L & N & O --> M[📊 Report<br/>Markdown / HTML / JSON / SARIF]
 ```
 
-### Three Commands, Three Capabilities
+### Five Commands
 
 | Command | What It Does | Input | Output |
 |---|---|---|---|
-| `aguard scan` | Finds security vulnerabilities in your agent configuration files | Agent project directory | Risk score + findings (OWASP MCP Top 10 mapped) |
-| `aguard monitor` | Replays agent traces and flags policy violations | OpenTelemetry trace file (JSONL) + policy file (YAML) | Violation report with drift detection |
-| `aguard whatif` | Simulates "what if I apply this policy?" and shows risk delta | Agent config file (YAML) | Before/after risk scores + recommendations |
+| `aguard scan` | Finds security vulnerabilities in agent config files | Project directory | Risk score + findings (OWASP MCP Top 10) |
+| `aguard monitor` | Replays agent traces and flags policy violations | Trace file (JSONL) + policy (YAML) | Violation report with drift detection |
+| `aguard whatif` | Simulates policy changes and shows risk delta | Agent config (YAML) | Before/after risk scores + explanations |
+| `aguard evidence` | Generates a launch readiness packet for review | Project + config + policy | Markdown report with approval checklist |
+| `aguard baseline` | Creates snapshots and detects security drift | Project directory | Baseline JSON + drift comparison |
 
 ---
 
@@ -350,6 +357,67 @@ $ aguard whatif --config agent-config.yaml
 
 ---
 
+### 4. `aguard evidence` — Launch Readiness Packet
+
+Generates a structured Markdown report combining scan findings, policy analysis, and an approval checklist — designed for security review before shipping an agent to production.
+
+```bash
+$ aguard evidence ./my-project/ --config agent-config.yaml --policy agent-policy.yaml
+
+📋 Generating launch readiness packet
+  Scanning project: /home/user/my-project
+  Loading config: agent-config.yaml
+  Loading policy: agent-policy.yaml
+
+  ✅ Launch readiness packet saved to launch-readiness.md
+```
+
+The generated report includes:
+- **Risk summary** — overall score, finding counts by severity
+- **Security findings** — every issue with OWASP ID, description, and remediation
+- **Tool permissions** — what the agent can access
+- **Policy coverage** — allowed/denied tools, HITL gates, data access rules
+- **Required mitigations** — actionable checklist of HIGH/CRITICAL fixes
+- **Launch approval checklist** — sign-off template for security review
+
+---
+
+### 5. `aguard baseline` — Drift Detection
+
+Save a security snapshot, then compare later to detect drift — new vulnerabilities introduced, or old ones resolved.
+
+```bash
+# Save a baseline
+$ aguard baseline create ./my-project/
+📏 Creating security baseline
+  ✅ Baseline saved to .aguard-baseline.json
+
+# Later, compare against the baseline
+$ aguard baseline compare ./my-project/
+📏 Baseline Drift Report
+  Baseline: .aguard-baseline.json (created 2026-05-18)
+  Risk Score: 72 → 45 (↓ 27 points)
+
+  ✅ Resolved (3):
+    - Hardcoded OpenAI Key in .env:3
+    - Missing auth on remote MCP server
+    - No timeout on data-agent
+
+  🆕 New (1):
+    - Static long-lived token on slack-server
+
+  ➡️ Unchanged (2):
+    - Wildcard permissions on postgres-server
+    - Dangerous tool 'execute' without HITL
+
+  Summary: 3 resolved, 1 new, 2 unchanged
+
+# In CI: fail if new findings appear
+$ aguard baseline compare ./my-project/ --fail-on-drift
+```
+
+---
+
 ## How It Fits Into Your Stack
 
 AgentGuard sits **above** your existing guardrails — it doesn't replace them.
@@ -514,6 +582,10 @@ pluto-aguard/
 │   │   ├── mcp_scanner.py         # MCP config + secret scanner
 │   │   ├── permission_scanner.py  # Agent permission analyzer + risk scorer
 │   │   └── runner.py              # Scan orchestrator
+│   ├── evidence/
+│   │   └── runner.py              # Launch readiness packet generator
+│   ├── baseline/
+│   │   └── runner.py              # Baseline snapshot + drift comparison
 │   ├── monitor/
 │   │   └── runner.py              # Behavioral monitor + drift detector
 │   ├── simulator/
@@ -528,7 +600,7 @@ pluto-aguard/
 │   ├── secure-agent-config.yaml   # Best-practice example
 │   ├── agent-policy.yaml          # Example policy file
 │   └── sample-traces.jsonl        # Example agent traces
-├── tests/                         # 42 tests across all modules
+├── tests/                         # 51 tests across all modules
 ├── .github/workflows/
 │   ├── ci.yml                     # CI: pytest + ruff on every push
 │   └── publish.yml                # Auto-publish to PyPI on release
@@ -558,6 +630,8 @@ pluto-aguard/
 - [x] **v0.3** — Permission drift detection with approval event model
 - [x] **v0.4** — What-If policy simulator with risk scoring and explanations
 - [x] **v0.5** — HTML + SARIF report generators, CI gate flags (`--max-risk`, `--fail-on`)
+- [x] **v0.6** — `aguard evidence` — launch readiness packets with approval checklists
+- [x] **v0.7** — `aguard baseline create` / `aguard baseline compare` — drift detection
 - [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
 - [ ] **v1.1** — `aguard evidence` — launch readiness packets
 - [ ] **v1.2** — `aguard baseline` / `aguard drift` — baseline and drift comparison

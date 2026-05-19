@@ -83,5 +83,53 @@ def whatif(config: str, policy: str | None, interactive: bool) -> None:
     run_whatif(config_path=config, policy_path=policy, interactive=interactive)
 
 
+@main.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--config", type=click.Path(exists=True), help="Agent config file (YAML)")
+@click.option("--policy", type=click.Path(exists=True), help="Agent policy file (YAML)")
+@click.option("--output", "-o", type=click.Path(), help="Output file path", default="launch-readiness.md")
+def evidence(path: str, config: str | None, policy: str | None, output: str) -> None:
+    """📋 Generate a launch readiness packet for agent review.
+
+    Combines scan findings, policy analysis, and risk assessment into
+    a single document for security review before shipping an agent.
+    """
+    from pluto_aguard.evidence.runner import run_evidence
+
+    run_evidence(path, config_path=config, policy_path=policy, output_path=output)
+
+
+@main.group()
+def baseline() -> None:
+    """📏 Manage security baselines for drift detection."""
+
+
+@baseline.command("create")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--output", "-o", type=click.Path(), default=".aguard-baseline.json", help="Baseline output file")
+def baseline_create(path: str, output: str) -> None:
+    """Create a security baseline snapshot of the current state."""
+    from pluto_aguard.baseline.runner import create_baseline
+
+    create_baseline(path, output_path=output)
+
+
+@baseline.command("compare")
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option(
+    "--baseline-file",
+    "-b",
+    type=click.Path(exists=True),
+    default=".aguard-baseline.json",
+    help="Baseline file to compare against",
+)
+@click.option("--fail-on-drift", is_flag=True, help="Exit with code 1 if drift detected")
+def baseline_compare(path: str, baseline_file: str, fail_on_drift: bool) -> None:
+    """Compare current state against a saved baseline to detect drift."""
+    from pluto_aguard.baseline.runner import compare_baseline
+
+    compare_baseline(path, baseline_path=baseline_file, fail_on_drift=fail_on_drift)
+
+
 if __name__ == "__main__":
     main()
