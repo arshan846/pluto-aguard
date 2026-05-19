@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -30,6 +31,8 @@ def run_scan(
     output_format: str = "text",
     output_path: str | None = None,
     rules_path: str | None = None,
+    max_risk: float | None = None,
+    fail_on: str | None = None,
 ) -> ScanResult:
     """Run a full security scan on the given path."""
     start_time = time.monotonic()
@@ -85,7 +88,10 @@ def run_scan(
         _print_json_report(result, output_path)
     elif output_format == "html":
         _generate_html_report(result, output_path)
+    elif output_format == "sarif":
+        _generate_sarif_report(result, output_path)
 
+    _enforce_ci_gates(result, max_risk=max_risk, fail_on=fail_on)
     return result
 
 
@@ -229,3 +235,39 @@ def _generate_html_report(result: ScanResult, output_path: str | None) -> None:
     html = generate_html(result)
     Path(output).write_text(html, encoding="utf-8")
     console.print(f"\n  📄 HTML report saved to: {output}\n")
+
+
+def _generate_sarif_report(result: ScanResult, output_path: str | None) -> None:
+    """Generate a SARIF report."""
+    from pluto_aguard.reports.sarif_report import generate_sarif
+
+    output = output_path or "aguard-results.sarif"
+    sarif_str = generate_sarif(result)
+    Path(output).write_text(sarif_str, encoding="utf-8")
+    console.print(f"\n  📄 SARIF report saved to: {output}\n")
+
+
+def _enforce_ci_gates(result: ScanResult, max_risk: float | None, fail_on: str | None) -> None:
+    """Apply CI failure thresholds after report generation."""
+    if max_risk is not None and result.risk_score.overall > max_risk:
+        console.print(
+            f"  ❌ Risk score {result.risk_score.overall:.1f} exceeds --max-risk threshold of {max_risk:.1f}"
+        )
+        sys.exit(1)
+
+    if not fail_on:
+        return
+
+    severity_order = {
+        Severity.CRITICAL: 4,
+        Severity.HIGH: 3,
+        Severity.MEDIUM: 2,
+        Severity.LOW: 1,
+        Severity.INFO: 0,
+    }
+    threshold = Severity(fail_on)
+    if any(severity_order[finding.severity] >= severity_order[threshold] for finding in result.findings):
+        console.print(
+            f"  ❌ Findings meeting --fail-on threshold '{fail_on}' were detected"
+        )
+        sys.exit(1)

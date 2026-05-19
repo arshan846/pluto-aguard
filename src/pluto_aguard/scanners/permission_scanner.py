@@ -48,7 +48,7 @@ def scan_agent_permissions(file_path: Path, config: dict[str, Any]) -> list[Find
             ),
             severity=Severity.HIGH,
             category="permissions",
-            owasp_id="OWASP-MCP-03",
+            owasp_id="MCP02:2025",
             file_path=str(file_path),
             remediation=(
                 "Add an explicit 'permissions' section declaring the minimum required "
@@ -79,7 +79,7 @@ def scan_agent_permissions(file_path: Path, config: dict[str, Any]) -> list[Find
             ),
             severity=Severity.HIGH,
             category="permissions",
-            owasp_id="OWASP-MCP-04",
+            owasp_id="MCP05:2025",
             file_path=str(file_path),
             remediation=(
                 "Add these tools to the 'require_human_approval' list: "

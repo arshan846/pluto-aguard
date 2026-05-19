@@ -36,3 +36,6 @@ Thumbs.db
 # Generated reports
 aguard-report.html
 *.sarif
+
+# Local drafts
+docs/blog-*.md

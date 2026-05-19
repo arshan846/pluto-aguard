@@ -15,9 +15,11 @@ from pathlib import Path
 import yaml
 from rich.console import Console
 
-from pluto_aguard.models import AgentAction, AgentPolicy, Finding, Severity
+from pluto_aguard.models import AgentAction, AgentPolicy, ApprovalEvent, Finding, Severity
 
 console = Console()
+
+ParsedTraceEvent = AgentAction | ApprovalEvent
 
 
 def load_policy(policy_path: str | None) -> AgentPolicy | None:
@@ -36,26 +38,47 @@ def load_policy(policy_path: str | None) -> AgentPolicy | None:
     return AgentPolicy(**data)
 
 
-def parse_trace_line(line: str) -> AgentAction | None:
-    """Parse a single JSONL trace line into an AgentAction."""
+def parse_trace_line(line: str) -> ParsedTraceEvent | None:
+    """Parse a single JSONL trace line into an action or approval event."""
     try:
         data = json.loads(line.strip())
     except json.JSONDecodeError:
         return None
 
-    # Support OpenTelemetry span format
     if "name" in data and "attributes" in data:
         attrs = data.get("attributes", {})
+        action_type = attrs.get("action_type", _infer_action_type(data["name"]))
+        if action_type == "approval":
+            return ApprovalEvent(
+                tool_name=attrs.get("tool.name", attrs.get("approval.tool_name", data.get("name", "unknown"))),
+                approved_by=attrs.get("approval.approved_by", attrs.get("approved_by")),
+                approval_id=attrs.get("approval.id", attrs.get("approval_id")),
+                approved_at=attrs.get("approval.approved_at", data.get("startTimeUnixNano", data.get("timestamp"))),
+                expired=_as_bool(attrs.get("approval.expired", attrs.get("expired", False))),
+            )
+
         return AgentAction(
             turn=attrs.get("turn", 0),
             timestamp=data.get("startTimeUnixNano", data.get("timestamp")),
-            action_type=attrs.get("action_type", _infer_action_type(data["name"])),
+            action_type=action_type,
             tool_name=attrs.get("tool.name", data.get("name")),
             tool_args=attrs.get("tool.args", {}),
             result_summary=attrs.get("result.summary"),
         )
 
-    # Support simple agent trace format
+    action_type = data.get("action_type")
+    if action_type == "approval":
+        tool_name = data.get("tool_name", data.get("approved_tool", data.get("name")))
+        if not isinstance(tool_name, str) or not tool_name:
+            return None
+        return ApprovalEvent(
+            tool_name=tool_name,
+            approved_by=data.get("approved_by"),
+            approval_id=data.get("approval_id"),
+            approved_at=data.get("approved_at", data.get("timestamp")),
+            expired=_as_bool(data.get("expired", False)),
+        )
+
     if "action_type" in data or "tool_name" in data:
         return AgentAction(**data)
 
@@ -65,6 +88,8 @@ def parse_trace_line(line: str) -> AgentAction | None:
 def _infer_action_type(span_name: str) -> str:
     """Infer action type from span name."""
     name_lower = span_name.lower()
+    if any(k in name_lower for k in ("approval", "approve")):
+        return "approval"
     if any(k in name_lower for k in ("tool", "function", "call")):
         return "tool_call"
     if any(k in name_lower for k in ("query", "read", "fetch", "get")):
@@ -74,19 +99,33 @@ def _infer_action_type(span_name: str) -> str:
     return "unknown"
 
 
+def _as_bool(value: object) -> bool:
+    """Convert common truthy values to bool."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y"}
+    return bool(value)
+
+
 def check_action_against_policy(
-    action: AgentAction, policy: AgentPolicy
+    action: AgentAction,
+    policy: AgentPolicy,
+    approvals: dict[str, ApprovalEvent] | None = None,
 ) -> list[Finding]:
     """Check a single agent action against the declared policy."""
     violations: list[Finding] = []
+    approvals = approvals or {}
 
     if not action.tool_name:
         return violations
 
     tool = action.tool_name.lower()
+    denied_tools = [t.lower() for t in policy.denied_tools]
+    allowed_tools = [t.lower() for t in policy.allowed_tools]
+    approval_required = [t.lower() for t in policy.require_human_approval]
 
-    # Check if tool is explicitly denied
-    if policy.denied_tools and tool in [t.lower() for t in policy.denied_tools]:
+    if denied_tools and tool in denied_tools:
         violations.append(Finding(
             id=f"DRIFT-DENIED-TOOL-{tool}-T{action.turn}",
             title=f"Agent invoked denied tool '{action.tool_name}'",
@@ -97,11 +136,10 @@ def check_action_against_policy(
             ),
             severity=Severity.CRITICAL,
             category="drift",
-            owasp_id="OWASP-MCP-04",
+            owasp_id="MCP05:2025",
         ))
 
-    # Check if tool is in allowed list (if allowlist exists)
-    if policy.allowed_tools and tool not in [t.lower() for t in policy.allowed_tools]:
+    if allowed_tools and tool not in allowed_tools:
         violations.append(Finding(
             id=f"DRIFT-UNAUTHORIZED-TOOL-{tool}-T{action.turn}",
             title=f"Agent invoked unauthorized tool '{action.tool_name}'",
@@ -112,25 +150,51 @@ def check_action_against_policy(
             ),
             severity=Severity.HIGH,
             category="drift",
-            owasp_id="OWASP-MCP-03",
+            owasp_id="MCP02:2025",
         ))
 
-    # Check if tool requires human approval
-    if tool in [t.lower() for t in policy.require_human_approval]:
-        # In a real implementation, we'd check if approval was given
-        violations.append(Finding(
-            id=f"DRIFT-NO-APPROVAL-{tool}-T{action.turn}",
-            title=f"Tool '{action.tool_name}' used without human approval",
-            description=(
-                f"At turn {action.turn}, the agent called '{action.tool_name}' which "
-                "requires human-in-the-loop approval, but no approval record was found."
-            ),
-            severity=Severity.HIGH,
-            category="drift",
-            owasp_id="OWASP-MCP-04",
-        ))
+    if tool in approval_required:
+        approval = approvals.get(tool)
+        if approval and approval.expired:
+            violations.append(Finding(
+                id=f"DRIFT-EXPIRED-APPROVAL-{tool}-T{action.turn}",
+                title=f"Expired approval for tool '{action.tool_name}'",
+                description=(
+                    f"At turn {action.turn}, the agent called '{action.tool_name}' using an "
+                    "approval record that is marked expired. A fresh human approval is required "
+                    "before this action can proceed."
+                ),
+                severity=Severity.HIGH,
+                category="drift",
+                owasp_id="MCP05:2025",
+            ))
+        elif approvals and not approval:
+            approved_tools = ", ".join(sorted(a.tool_name for a in approvals.values()))
+            violations.append(Finding(
+                id=f"DRIFT-MISMATCHED-APPROVAL-{tool}-T{action.turn}",
+                title=f"Mismatched approval for tool '{action.tool_name}'",
+                description=(
+                    f"At turn {action.turn}, the agent called '{action.tool_name}' which requires "
+                    "human approval, but the recorded approval applies to a different tool "
+                    f"({approved_tools})."
+                ),
+                severity=Severity.HIGH,
+                category="drift",
+                owasp_id="MCP05:2025",
+            ))
+        elif not approval:
+            violations.append(Finding(
+                id=f"DRIFT-NO-APPROVAL-{tool}-T{action.turn}",
+                title=f"Tool '{action.tool_name}' used without human approval",
+                description=(
+                    f"At turn {action.turn}, the agent called '{action.tool_name}' which "
+                    "requires human-in-the-loop approval, but no approval record was found."
+                ),
+                severity=Severity.HIGH,
+                category="drift",
+                owasp_id="MCP05:2025",
+            ))
 
-    # Check permission level
     if policy.max_permissions:
         max_perm = policy.max_permissions.get(tool, policy.max_permissions.get("*"))
         if max_perm and max_perm.lower() == "read":
@@ -159,6 +223,7 @@ def run_monitor(
 ) -> list[Finding]:
     """Run the behavioral monitor on agent traces."""
     policy = load_policy(policy_path)
+    approvals: dict[str, ApprovalEvent] = {}
     all_violations: list[Finding] = []
 
     console.print("\n📡 [bold]Monitoring agent behavior...[/bold]\n")
@@ -168,56 +233,20 @@ def run_monitor(
         console.print("  [dim]Use --policy to enable drift detection.[/dim]\n")
 
     if trace_file:
-        trace_path = Path(trace_file)
-        lines = trace_path.read_text(encoding="utf-8").splitlines()
-
-        for i, line in enumerate(lines):
-            if not line.strip():
-                continue
-
-            action = parse_trace_line(line)
-            if not action:
-                continue
-
-            # Print action
-            _print_action(action)
-
-            # Check against policy if available
-            if policy:
-                violations = check_action_against_policy(action, policy)
-                all_violations.extend(violations)
-
-                for v in violations:
-                    icon = "🚨" if v.severity in (Severity.CRITICAL, Severity.HIGH) else "⚠️"
-                    color = "red" if v.severity == Severity.CRITICAL else "yellow"
-                    console.print(f"     {icon} [{color}]DRIFT: {v.title}[/{color}]")
-                    console.print(f"        [dim]→ {v.description}[/dim]")
-
+        lines = Path(trace_file).read_text(encoding="utf-8").splitlines()
+        _process_trace_lines(lines, policy, approvals, all_violations)
     elif live:
         console.print("  [dim]Reading from stdin... (Ctrl+C to stop)[/dim]\n")
         import sys
 
         try:
-            for line in sys.stdin:
-                action = parse_trace_line(line)
-                if not action:
-                    continue
-
-                _print_action(action)
-
-                if policy:
-                    violations = check_action_against_policy(action, policy)
-                    all_violations.extend(violations)
-                    for v in violations:
-                        console.print(f"     🚨 [red]DRIFT: {v.title}[/red]")
+            _process_trace_lines(sys.stdin, policy, approvals, all_violations)
         except KeyboardInterrupt:
             console.print("\n  [dim]Monitoring stopped.[/dim]")
-
     else:
         console.print("  [red]Error: Provide --trace-file or --live[/red]")
         return []
 
-    # Summary
     if all_violations:
         console.print(f"\n🚨 [red bold]{len(all_violations)} policy violations detected[/red bold]")
     else:
@@ -226,8 +255,50 @@ def run_monitor(
     return all_violations
 
 
-def _print_action(action: AgentAction) -> None:
-    """Print a formatted agent action."""
+def _process_trace_lines(
+    lines: list[str] | object,
+    policy: AgentPolicy | None,
+    approvals: dict[str, ApprovalEvent],
+    all_violations: list[Finding],
+) -> None:
+    """Process a stream of trace lines and collect policy violations."""
+    for line in lines:
+        if not isinstance(line, str) or not line.strip():
+            continue
+
+        event = parse_trace_line(line)
+        if not event:
+            continue
+
+        _print_action(event)
+
+        if isinstance(event, ApprovalEvent):
+            approvals[event.tool_name.lower()] = event
+            continue
+
+        if policy:
+            violations = check_action_against_policy(event, policy, approvals)
+            all_violations.extend(violations)
+            _print_violations(violations)
+
+
+def _print_violations(violations: list[Finding]) -> None:
+    """Print policy violations."""
+    for violation in violations:
+        icon = "🚨" if violation.severity in (Severity.CRITICAL, Severity.HIGH) else "⚠️"
+        color = "red" if violation.severity == Severity.CRITICAL else "yellow"
+        console.print(f"     {icon} [{color}]DRIFT: {violation.title}[/{color}]")
+        console.print(f"        [dim]→ {violation.description}[/dim]")
+
+
+def _print_action(action: ParsedTraceEvent) -> None:
+    """Print a formatted agent action or approval."""
+    if isinstance(action, ApprovalEvent):
+        status = "expired" if action.expired else "active"
+        approver = f" by {action.approved_by}" if action.approved_by else ""
+        console.print(f"  Approval: ✅ [bold]{action.tool_name}[/bold]{approver} [{status}]")
+        return
+
     type_icons = {
         "tool_call": "🔧",
         "data_access": "📊",

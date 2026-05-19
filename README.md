@@ -1,6 +1,6 @@
 # 🛡️ Pluto AgentGuard
 
-**Open-source AI Agent Security Scanner — "OWASP ZAP for AI Agents"**
+**Open-source launch gate for MCP-enabled AI agents. Detect risky permissions, insecure tools, missing approval gates, and behavioral drift before agents ship.**
 
 [![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -140,18 +140,18 @@ graph TD
     SCAN --> B[Agent Config Files]
     SCAN --> C[Source & Env Files]
 
-    A --> A1[🔴 Wildcard permissions — OWASP-MCP-03]
-    A --> A2[🔴 Missing auth on remote servers — OWASP-MCP-01]
-    A --> A3[🔴 Tool poisoning in descriptions — OWASP-MCP-02]
-    A --> A4[🟠 HTTP transport, no TLS — OWASP-MCP-06]
-    A --> A5[🟠 Dangerous tools without HITL — OWASP-MCP-04]
-    A --> A6[🟡 Static long-lived tokens — OWASP-MCP-05]
+    A --> A1[🔴 Wildcard permissions — MCP02:2025]
+    A --> A2[🔴 Missing auth on remote servers — MCP07:2025]
+    A --> A3[🔴 Tool poisoning in descriptions — MCP03:2025]
+    A --> A4[🟠 HTTP transport, no TLS — MCP07:2025]
+    A --> A5[🟠 Dangerous tools without HITL — MCP05:2025]
+    A --> A6[🟡 Static long-lived tokens — MCP01:2025]
 
     B --> B1[🟠 No declared permissions]
     B --> B2[🟠 Unrestricted data access]
     B --> B3[🟡 Missing timeout/rate limits]
 
-    C --> C1[🟠 Hardcoded API keys — OWASP-MCP-07]
+    C --> C1[🟠 Hardcoded API keys — MCP01:2025]
     C --> C2[🟠 Connection strings with credentials]
     C --> C3[🟠 Private keys in config]
 ```
@@ -173,14 +173,14 @@ $ aguard scan ./my-agent-project/
 
   Scanning MCP configurations and secrets...
   Scanning agent permission configurations...
-  🔴 CRITICAL: Wildcard permissions on MCP server 'postgres-server' (OWASP-MCP-03)
+  🔴 CRITICAL: Wildcard permissions on MCP server 'postgres-server' (MCP02:2025)
      📄 mcp.json:5
-  🔴 CRITICAL: No authentication on remote MCP server 'api-gateway' (OWASP-MCP-01)
+  🔴 CRITICAL: No authentication on remote MCP server 'api-gateway' (MCP07:2025)
      📄 mcp.json:12
-  🟠 HIGH: Hardcoded OpenAI Key detected (OWASP-MCP-07)
+  🟠 HIGH: Hardcoded OpenAI Key detected (MCP01:2025)
      📄 .env:3
      Evidence: sk-p****XYZ1
-  🟠 HIGH: Dangerous tools without human approval on 'data-agent' (OWASP-MCP-04)
+  🟠 HIGH: Dangerous tools without human approval on 'data-agent' (MCP05:2025)
      📄 agent-config.yaml
   🟡 MEDIUM: No timeout or rate limits on agent 'data-agent'
      📄 agent-config.yaml
@@ -194,8 +194,13 @@ $ aguard scan ./my-agent-project/
 
 ```bash
 aguard scan ./project/                       # Terminal (default)
-aguard scan ./project/ --format json         # JSON (for CI pipelines)
+aguard scan ./project/ --format json         # JSON (for scripting)
+aguard scan ./project/ --format sarif        # SARIF (GitHub Advanced Security)
 aguard scan ./project/ --format html -o report.html  # Interactive HTML report
+
+# CI gate flags
+aguard scan ./project/ --max-risk 50         # Exit code 1 if score > 50
+aguard scan ./project/ --fail-on high        # Exit code 1 if any high+ findings
 ```
 
 ---
@@ -423,18 +428,15 @@ aguard monitor --trace-file my-traces.jsonl --policy my-policy.yaml
 - name: Agent Security Scan
   run: |
     pip install pluto-aguard
-    aguard scan . --format json -o aguard-results.json
+    aguard scan . --max-risk 50 --fail-on high --format sarif -o results.sarif
 
-- name: Check risk score
-  run: |
-    python -c "
-    import json
-    r = json.load(open('aguard-results.json'))
-    score = r['risk_score']['overall']
-    print(f'Risk score: {score}')
-    assert score < 50, f'Risk score {score} exceeds threshold of 50'
-    "
+- name: Upload SARIF to GitHub Security
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
 ```
+
+The `--max-risk 50` flag exits with code 1 if risk score exceeds 50. The `--fail-on high` flag fails the build if any high or critical severity findings exist. SARIF output integrates directly with GitHub Advanced Security.
 
 ---
 
@@ -517,7 +519,8 @@ pluto-aguard/
 │   ├── simulator/
 │   │   └── runner.py              # What-If policy simulator
 │   ├── reports/
-│   │   └── html_report.py         # HTML report generator
+│   │   ├── html_report.py         # HTML report generator
+│   │   └── sarif_report.py        # SARIF output (GitHub Advanced Security)
 │   └── rules/
 │       └── owasp_mcp_top10.yaml   # OWASP MCP Top 10 rule definitions
 ├── examples/
@@ -525,7 +528,7 @@ pluto-aguard/
 │   ├── secure-agent-config.yaml   # Best-practice example
 │   ├── agent-policy.yaml          # Example policy file
 │   └── sample-traces.jsonl        # Example agent traces
-├── tests/                         # 35 tests across all modules
+├── tests/                         # 42 tests across all modules
 ├── .github/workflows/
 │   ├── ci.yml                     # CI: pytest + ruff on every push
 │   └── publish.yml                # Auto-publish to PyPI on release
@@ -552,13 +555,17 @@ pluto-aguard/
 
 - [x] **v0.1** — MCP config scanner + secret detection + OWASP MCP Top 10 rules
 - [x] **v0.2** — Runtime behavioral monitor with OpenTelemetry trace ingestion
-- [x] **v0.3** — Permission drift detection engine
-- [x] **v0.4** — What-If policy simulator with risk scoring
-- [x] **v0.5** — HTML report generator
+- [x] **v0.3** — Permission drift detection with approval event model
+- [x] **v0.4** — What-If policy simulator with risk scoring and explanations
+- [x] **v0.5** — HTML + SARIF report generators, CI gate flags (`--max-risk`, `--fail-on`)
 - [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
-- [ ] **v1.1** — SARIF output for GitHub Advanced Security integration
-- [ ] **v1.2** — Live agent monitoring (real-time stdin mode)
-- [ ] **v1.3** — Custom rule authoring SDK
+- [ ] **v1.1** — `aguard evidence` — launch readiness packets
+- [ ] **v1.2** — `aguard baseline` / `aguard drift` — baseline and drift comparison
+- [ ] **v1.3** — Live agent monitoring (real-time stdin / webhook mode)
+
+## Risk Scoring
+
+See [docs/risk-scoring.md](docs/risk-scoring.md) for the full scoring methodology, formula, weights, and CI threshold guidance.
 
 ## Contributing
 

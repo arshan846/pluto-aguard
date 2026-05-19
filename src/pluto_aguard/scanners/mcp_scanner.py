@@ -73,7 +73,7 @@ def scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
                     ),
                     severity=Severity.HIGH,
                     category="secrets",
-                    owasp_id="OWASP-MCP-07",
+                    owasp_id="MCP01:2025",
                     file_path=str(file_path),
                     line_number=line_num,
                     evidence=_redact_secret(line.strip()),
@@ -128,7 +128,7 @@ def _check_server_permissions(
             ),
             severity=Severity.CRITICAL,
             category="permissions",
-            owasp_id="OWASP-MCP-03",
+            owasp_id="MCP02:2025",
             file_path=str(file_path),
             remediation=(
                 f"Restrict permissions for '{server_name}' to only the specific tools and "
@@ -146,7 +146,7 @@ def _check_server_permissions(
             ),
             severity=Severity.HIGH,
             category="permissions",
-            owasp_id="OWASP-MCP-03",
+            owasp_id="MCP02:2025",
             file_path=str(file_path),
             remediation="Scope permissions to the minimum required access level.",
         ))
@@ -168,7 +168,7 @@ def _check_server_permissions(
                     ),
                     severity=Severity.HIGH,
                     category="permissions",
-                    owasp_id="OWASP-MCP-04",
+                    owasp_id="MCP05:2025",
                     file_path=str(file_path),
                     remediation=(
                         f"Add human-in-the-loop approval for the '{tool_name}' tool, "
@@ -196,7 +196,7 @@ def _check_server_transport(
             ),
             severity=Severity.HIGH,
             category="transport",
-            owasp_id="OWASP-MCP-06",
+            owasp_id="MCP07:2025",
             file_path=str(file_path),
             remediation="Use HTTPS with TLS 1.2+ for all MCP server connections.",
         ))
@@ -227,7 +227,7 @@ def _check_server_auth(
             ),
             severity=Severity.CRITICAL,
             category="authentication",
-            owasp_id="OWASP-MCP-01",
+            owasp_id="MCP07:2025",
             file_path=str(file_path),
             remediation=(
                 "Add authentication (API key, OAuth, mTLS) to the MCP server. "
@@ -248,7 +248,7 @@ def _check_server_auth(
                 ),
                 severity=Severity.MEDIUM,
                 category="authentication",
-                owasp_id="OWASP-MCP-05",
+                owasp_id="MCP01:2025",
                 file_path=str(file_path),
                 remediation=(
                     "Use ephemeral, short-lived tokens with automatic rotation. "
@@ -301,7 +301,7 @@ def _check_tool_definitions(
                     ),
                     severity=Severity.CRITICAL,
                     category="tool_poisoning",
-                    owasp_id="OWASP-MCP-02",
+                    owasp_id="MCP03:2025",
                     file_path=str(file_path),
                     evidence=description[:200],
                     remediation=(

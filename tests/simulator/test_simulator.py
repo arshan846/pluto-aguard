@@ -41,6 +41,8 @@ class TestSimulator:
             assert "id" in policy
             assert "description" in policy
             assert "category" in policy
+            assert "reasoning" in policy
+            assert policy["reasoning"]
 
     def test_hitl_reduces_dangerous_tool_risk(self) -> None:
         config = {
@@ -55,3 +57,4 @@ class TestSimulator:
         # This specific policy may or may not affect execute/shell,
         # but the simulation should still complete successfully
         assert hitl_result is not None
+        assert hitl_result.applied_policies[0].reasoning

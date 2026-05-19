@@ -63,7 +63,7 @@ class TestMCPConfigScanner:
             }
         }
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
-        assert any(f.owasp_id == "OWASP-MCP-06" for f in findings)
+        assert any(f.owasp_id == "MCP07:2025" for f in findings)
 
     def test_detects_missing_auth_on_remote(self, tmp_path: Path) -> None:
         config = {
@@ -75,7 +75,7 @@ class TestMCPConfigScanner:
             }
         }
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
-        assert any(f.owasp_id == "OWASP-MCP-01" for f in findings)
+        assert any(f.owasp_id == "MCP07:2025" for f in findings)
 
     def test_detects_tool_poisoning(self, tmp_path: Path) -> None:
         config = {
@@ -92,7 +92,7 @@ class TestMCPConfigScanner:
             }
         }
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
-        assert any(f.owasp_id == "OWASP-MCP-02" for f in findings)
+        assert any(f.owasp_id == "MCP03:2025" for f in findings)
 
     def test_detects_dangerous_tools(self, tmp_path: Path) -> None:
         config = {

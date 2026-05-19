@@ -31,18 +31,27 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "restrict-sql-readonly",
         "description": "Restrict SQL tool to SELECT-only queries",
         "category": "permissions",
+        "reasoning": (
+            "The agent currently has unrestricted SQL access including INSERT/UPDATE/DELETE. "
+            "Restricting to SELECT-only eliminates data modification risk from compromised "
+            "or misbehaving agents."
+        ),
         "transforms": {
             "tools.sql_query.permissions": "read",
             "tools.database.permissions": "read",
         },
         "risk_reduction": {
-            "permissions": 0.6,  # Reduces permission risk by 40%
+            "permissions": 0.6,
         },
     },
     {
         "id": "add-hitl-file-ops",
         "description": "Add human-in-the-loop for file operations",
         "category": "permissions",
+        "reasoning": (
+            "File writes and deletes can cause irreversible impact. Requiring explicit human "
+            "approval adds a high-confidence checkpoint before destructive actions run."
+        ),
         "transforms": {
             "require_human_approval": ["file_write", "file_delete"],
         },
@@ -54,6 +63,10 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "ephemeral-tokens",
         "description": "Rotate API keys to ephemeral tokens",
         "category": "secrets",
+        "reasoning": (
+            "Short-lived credentials reduce the blast radius of token leakage and make replay "
+            "attacks materially harder than with static credentials."
+        ),
         "transforms": {
             "auth.token_type": "ephemeral",
             "auth.rotation_seconds": 3600,
@@ -66,6 +79,10 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "add-rate-limits",
         "description": "Add rate limits (100 calls/minute) and timeout (5 min)",
         "category": "permissions",
+        "reasoning": (
+            "Rate limits and timeouts constrain runaway agents, reduce denial-of-service risk, "
+            "and give operators more opportunities to interrupt unsafe behavior."
+        ),
         "transforms": {
             "rate_limit": {"calls_per_minute": 100},
             "timeout": 300,
@@ -78,6 +95,10 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "restrict-network-egress",
         "description": "Restrict outbound network access to allowlisted domains",
         "category": "permissions",
+        "reasoning": (
+            "Outbound network access enables data exfiltration and command-and-control. "
+            "Allowlisting approved destinations narrows where compromised agents can send data."
+        ),
         "transforms": {
             "network.egress": "allowlist",
         },
@@ -89,6 +110,10 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "add-tool-allowlist",
         "description": "Convert from implicit-allow to explicit tool allowlist",
         "category": "permissions",
+        "reasoning": (
+            "Explicit allowlists make unintended tool access visible and enforce least privilege, "
+            "reducing the chance of scope creep as agents evolve."
+        ),
         "transforms": {
             "permission_model": "allowlist",
         },
@@ -100,6 +125,10 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "id": "sandbox-execution",
         "description": "Run agent in sandboxed execution environment",
         "category": "isolation",
+        "reasoning": (
+            "Sandboxing limits filesystem and network blast radius even when prompt injection, "
+            "tool abuse, or supply chain compromise succeeds."
+        ),
         "transforms": {
             "runtime.sandbox": True,
             "runtime.network_isolation": True,
@@ -180,6 +209,7 @@ def simulate_policies(
             id=policy_def["id"],
             description=policy_def["description"],
             category=policy_def["category"],
+            reasoning=policy_def.get("reasoning"),
         )
 
         results.append(SimulationResult(
@@ -220,6 +250,7 @@ def simulate_combined(
                 id=policy_def["id"],
                 description=policy_def["description"],
                 category=policy_def["category"],
+                reasoning=policy_def.get("reasoning"),
             ))
 
     new_risk = calculate_permission_risk_score(modified_config)
@@ -281,7 +312,7 @@ def run_whatif(
     results = simulate_policies(config, custom_policies)
 
     table = Table(show_header=True, header_style="bold")
-    table.add_column("Policy", style="dim", width=50)
+    table.add_column("Policy", style="dim", width=90)
     table.add_column("New Score", justify="right")
     table.add_column("Change", justify="right")
 
@@ -298,8 +329,12 @@ def run_whatif(
         else:
             change_str = "[dim]—[/dim]"
 
+        policy_text = f"  ✅ {policy.description}"
+        if policy.reasoning:
+            policy_text += f"\n[dim]{policy.reasoning}[/dim]"
+
         table.add_row(
-            f"  ✅ {policy.description}",
+            policy_text,
             f"{new_score:.0f}",
             change_str,
         )

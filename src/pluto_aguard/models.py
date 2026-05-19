@@ -48,6 +48,7 @@ class PolicyChange(BaseModel):
     id: str
     description: str
     category: str
+    reasoning: str | None = None
     expected_impact: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -83,6 +84,16 @@ class AgentPolicy(BaseModel):
     max_permissions: dict[str, str] = Field(default_factory=dict)  # tool -> permission level
     require_human_approval: list[str] = Field(default_factory=list)  # actions needing approval
     data_access_rules: dict[str, str] = Field(default_factory=dict)  # resource -> access level
+
+
+class ApprovalEvent(BaseModel):
+    """A recorded approval for a tool invocation."""
+
+    tool_name: str
+    approved_by: str | None = None
+    approval_id: str | None = None
+    approved_at: str | None = None
+    expired: bool = False
 
 
 class ScanResult(BaseModel):

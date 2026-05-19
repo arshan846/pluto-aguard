@@ -19,10 +19,23 @@ def main() -> None:
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True), default=".")
-@click.option("--format", "output_format", type=click.Choice(["text", "json", "html"]), default="text")
+@click.option("--format", "output_format", type=click.Choice(["text", "json", "html", "sarif"]), default="text")
 @click.option("--output", "-o", type=click.Path(), help="Output file path for report")
 @click.option("--rules", type=click.Path(exists=True), help="Custom rules file (YAML)")
-def scan(path: str, output_format: str, output: str | None, rules: str | None) -> None:
+@click.option("--max-risk", type=float, help="Exit with code 1 if risk score exceeds this threshold")
+@click.option(
+    "--fail-on",
+    type=click.Choice(["critical", "high", "medium", "low"]),
+    help="Exit with code 1 if findings at or above this severity exist",
+)
+def scan(
+    path: str,
+    output_format: str,
+    output: str | None,
+    rules: str | None,
+    max_risk: float | None,
+    fail_on: str | None,
+) -> None:
     """🔍 Scan agent project for security vulnerabilities.
 
     Analyzes MCP server configs, environment files, and agent definitions
@@ -30,7 +43,14 @@ def scan(path: str, output_format: str, output: str | None, rules: str | None) -
     """
     from pluto_aguard.scanners.runner import run_scan
 
-    run_scan(path, output_format=output_format, output_path=output, rules_path=rules)
+    run_scan(
+        path,
+        output_format=output_format,
+        output_path=output,
+        rules_path=rules,
+        max_risk=max_risk,
+        fail_on=fail_on,
+    )
 
 
 @main.command()
