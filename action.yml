@@ -35,14 +35,6 @@ inputs:
     required: false
     default: ''
 
-outputs:
-  risk-score:
-    description: 'The overall risk score from the scan'
-  findings-count:
-    description: 'Total number of security findings'
-  sarif-file:
-    description: 'Path to SARIF output file (if generated)'
-
 runs:
   using: 'composite'
   steps:
