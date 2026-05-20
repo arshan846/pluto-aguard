@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pluto-aguard"
-version = "0.1.0"
-description = "Open-source AI Agent Security Scanner — OWASP ZAP for AI Agents"
+version = "0.7.0"
+description = "Open-source launch gate for MCP-enabled AI agents — scan, monitor, simulate, and generate launch evidence"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
