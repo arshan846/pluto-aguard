@@ -96,6 +96,35 @@ def evidence(path: str, config: str | None, policy: str | None, output: str) -> 
     run_evidence(path, config_path=config, policy_path=policy, output_path=output)
 
 
+@main.command("test")
+@click.option("--policy", type=click.Path(exists=True), required=True, help="Agent policy file (YAML)")
+@click.option(
+    "--attack-pack",
+    type=click.Choice(
+        [
+            "all",
+            "prompt-injection",
+            "data-exfiltration",
+            "permission-escalation",
+            "approval-bypass",
+            "tool-poisoning",
+        ]
+    ),
+    default="all",
+    help="Attack pack to run",
+)
+@click.option("--fail-on-miss", is_flag=True, help="Exit with code 1 if any attacks are not caught by policy")
+def test(policy: str, attack_pack: str, fail_on_miss: bool) -> None:
+    """🎯 Run adversarial tests against an agent policy.
+
+    Simulates attack scenarios and checks whether the agent's declared
+    policy would catch each attack. No LLM or running agent needed.
+    """
+    from pluto_aguard.testing.runner import run_test
+
+    run_test(policy_path=policy, attack_pack=attack_pack, fail_on_miss=fail_on_miss)
+
+
 @main.group()
 def baseline() -> None:
     """📏 Manage security baselines for drift detection."""
