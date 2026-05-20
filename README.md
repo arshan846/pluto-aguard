@@ -298,7 +298,7 @@ $ aguard monitor --trace-file traces.jsonl --policy agent-policy.yaml
 
 ### 3. `aguard whatif` — Policy Impact Simulator
 
-The **unique feature no other tool has** — commercial or open-source. Simulates what happens to your risk score if you apply specific security policies, *before you actually change anything*.
+A differentiated feature: simulate policy impact before applying changes. Shows what happens to your risk score if you apply specific security policies, *before you actually change anything*.
 
 **How it works:**
 
@@ -618,7 +618,7 @@ pluto-aguard/
 | **What tools did the agent call?** | ❌ No tool audits this | `aguard monitor` |
 | **Did the agent exceed its permissions?** | ❌ No tool detects drift | `aguard monitor` with policy |
 | **Are my MCP configs secure?** | 🟡 Cisco scanner (basic) | `aguard scan` (deep, OWASP-mapped) |
-| **What if I restrict this permission?** | ❌ Nobody does this | `aguard whatif` (unique) |
+| **What if I restrict this permission?** | ❌ Nobody does this | `aguard whatif` (differentiated) |
 | **Are secrets in my agent configs?** | 🟡 Generic secret scanners exist | `aguard scan` (agent-aware context) |
 
 ---
@@ -633,9 +633,8 @@ pluto-aguard/
 - [x] **v0.6** — `aguard evidence` — launch readiness packets with approval checklists
 - [x] **v0.7** — `aguard baseline create` / `aguard baseline compare` — drift detection
 - [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
-- [ ] **v1.1** — `aguard evidence` — launch readiness packets
-- [ ] **v1.2** — `aguard baseline` / `aguard drift` — baseline and drift comparison
-- [ ] **v1.3** — Live agent monitoring (real-time stdin / webhook mode)
+- [ ] **v1.1** — Live agent monitoring (real-time webhook / sidecar mode)
+- [ ] **v1.2** — Custom rule authoring SDK
 
 ## Risk Scoring
 

@@ -21,7 +21,6 @@ def main() -> None:
 @click.argument("path", type=click.Path(exists=True), default=".")
 @click.option("--format", "output_format", type=click.Choice(["text", "json", "html", "sarif"]), default="text")
 @click.option("--output", "-o", type=click.Path(), help="Output file path for report")
-@click.option("--rules", type=click.Path(exists=True), help="Custom rules file (YAML)")
 @click.option("--max-risk", type=float, help="Exit with code 1 if risk score exceeds this threshold")
 @click.option(
     "--fail-on",
@@ -32,7 +31,6 @@ def scan(
     path: str,
     output_format: str,
     output: str | None,
-    rules: str | None,
     max_risk: float | None,
     fail_on: str | None,
 ) -> None:
@@ -47,7 +45,6 @@ def scan(
         path,
         output_format=output_format,
         output_path=output,
-        rules_path=rules,
         max_risk=max_risk,
         fail_on=fail_on,
     )

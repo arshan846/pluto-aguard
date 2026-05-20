@@ -30,7 +30,6 @@ def run_scan(
     path: str,
     output_format: str = "text",
     output_path: str | None = None,
-    rules_path: str | None = None,
     max_risk: float | None = None,
     fail_on: str | None = None,
 ) -> ScanResult:
