@@ -157,5 +157,20 @@ def baseline_compare(path: str, baseline_file: str, fail_on_drift: bool) -> None
     compare_baseline(path, baseline_path=baseline_file, fail_on_drift=fail_on_drift)
 
 
+@main.command()
+@click.argument("path", type=click.Path(exists=True), default=".")
+@click.option("--format", "output_format", type=click.Choice(["text", "markdown"]), default="text")
+@click.option("--output", "-o", type=click.Path(), help="Output file path for markdown report")
+def owasp(path: str, output_format: str, output: str | None) -> None:
+    """🛡️ Generate OWASP MCP Top 10 coverage report.
+
+    Evaluates which OWASP controls pass or fail based on scanning
+    the project, and generates a coverage report.
+    """
+    from pluto_aguard.controls.runner import run_owasp_report
+
+    run_owasp_report(path, output_format=output_format, output_path=output)
+
+
 if __name__ == "__main__":
     main()

@@ -104,3 +104,15 @@ class ScanResult(BaseModel):
     risk_score: RiskScore
     scanned_files: int = 0
     scan_duration_ms: int = 0
+
+
+class ControlResult(BaseModel):
+    """An OWASP-aligned control check result."""
+
+    control_id: str  # e.g., AGC-MCP01-001
+    owasp_refs: list[str] = Field(default_factory=list)  # e.g., ["MCP01:2025"]
+    title: str
+    status: str  # pass, fail, warning, not_tested
+    command: str  # scan, monitor, whatif, evidence, baseline, test
+    findings: list[Finding] = Field(default_factory=list)
+    remediation: str = ""
