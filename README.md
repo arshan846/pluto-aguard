@@ -59,15 +59,17 @@ graph LR
     E & F & G & H & I & J & K & L & N & O --> M[📊 Report<br/>Markdown / HTML / JSON / SARIF]
 ```
 
-### Five Commands
+### Seven Commands
 
 | Command | What It Does | Input | Output |
 |---|---|---|---|
 | `aguard scan` | Finds security vulnerabilities in agent config files | Project directory | Risk score + findings (OWASP MCP Top 10) |
 | `aguard monitor` | Replays agent traces and flags policy violations | Trace file (JSONL) + policy (YAML) | Violation report with drift detection |
 | `aguard whatif` | Simulates policy changes and shows risk delta | Agent config (YAML) | Before/after risk scores + explanations |
+| `aguard test` | Runs adversarial attack scenarios against a policy | Policy file (YAML) + attack pack | Pass/fail per attack + fix recommendations |
 | `aguard evidence` | Generates a launch readiness packet for review | Project + config + policy | Markdown report with approval checklist |
 | `aguard baseline` | Creates snapshots and detects security drift | Project directory | Baseline JSON + drift comparison |
+| `aguard owasp` | Generates OWASP MCP Top 10 coverage report | Project directory | Control pass/fail per OWASP risk |
 
 ---
 
@@ -591,11 +593,18 @@ aguard monitor --trace-file my-agent-traces.jsonl --policy my-policy.yaml
 pluto-aguard/
 ├── src/pluto_aguard/
 │   ├── cli.py                     # CLI entry point (aguard command)
-│   ├── models.py                  # Pydantic data models (Finding, RiskScore, etc.)
+│   ├── models.py                  # Pydantic data models (Finding, RiskScore, ControlResult, etc.)
 │   ├── scanners/
-│   │   ├── mcp_scanner.py         # MCP config + secret scanner
+│   │   ├── mcp_scanner.py         # MCP config + secret scanner (18+ patterns)
+│   │   ├── ai_config_scanner.py   # AI framework scanner (eval/exec, Docker, deps, prompts)
 │   │   ├── permission_scanner.py  # Agent permission analyzer + risk scorer
 │   │   └── runner.py              # Scan orchestrator
+│   ├── testing/
+│   │   ├── attack_packs.py        # 17 adversarial scenarios across 5 attack packs
+│   │   └── runner.py              # Adversarial policy simulation engine
+│   ├── controls/
+│   │   ├── registry.py            # 20 OWASP-aligned control definitions
+│   │   └── runner.py              # OWASP coverage report generator
 │   ├── evidence/
 │   │   └── runner.py              # Launch readiness packet generator
 │   ├── baseline/
@@ -610,11 +619,16 @@ pluto-aguard/
 │   └── rules/
 │       └── owasp_mcp_top10.yaml   # OWASP MCP Top 10 rule definitions
 ├── examples/
-│   ├── insecure-agent-config.yaml # Intentionally vulnerable (for testing)
+│   ├── demo-agent-project/        # Realistic insecure AI project (for testing)
+│   ├── insecure-agent-config.yaml # Intentionally vulnerable MCP config
 │   ├── secure-agent-config.yaml   # Best-practice example
 │   ├── agent-policy.yaml          # Example policy file
-│   └── sample-traces.jsonl        # Example agent traces
-├── tests/                         # 51 tests across all modules
+│   ├── sample-traces.jsonl        # Example agent traces
+│   └── sample-launch-readiness.md # Example evidence packet
+├── docs/
+│   ├── risk-scoring.md            # Risk scoring methodology
+│   └── owasp-control-matrix.md    # OWASP control mapping
+├── tests/                         # 84 tests across all modules
 ├── .github/workflows/
 │   ├── ci.yml                     # CI: pytest + ruff on every push
 │   └── publish.yml                # Auto-publish to PyPI on release

@@ -115,10 +115,11 @@ def evidence(path: str, config: str | None, policy: str | None, output: str) -> 
 )
 @click.option("--fail-on-miss", is_flag=True, help="Exit with code 1 if any attacks are not caught by policy")
 def test(policy: str, attack_pack: str, fail_on_miss: bool) -> None:
-    """🎯 Run adversarial tests against an agent policy.
+    """🎯 Run adversarial policy simulation.
 
     Simulates attack scenarios and checks whether the agent's declared
-    policy would catch each attack. No LLM or running agent needed.
+    policy would catch each attack. Pure policy simulation — no LLM
+    or running agent needed.
     """
     from pluto_aguard.testing.runner import run_test
 

@@ -18,6 +18,7 @@ class ControlDefinition:
     description: str
     command: str  # which aguard command implements this
     category: str  # finding category to match
+    finding_id_prefix: str = ""  # optional: match only findings with this ID prefix
     severity: str = "high"
 
 
@@ -47,6 +48,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Detect secrets set via ENV in Dockerfiles, which are baked into image layers.",
         command="scan",
         category="ai_config",
+        finding_id_prefix="AI-DOCKER-SECRET",
         severity="high",
     ),
     ControlDefinition(
@@ -56,6 +58,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify .env files are listed in .gitignore to prevent secret commits.",
         command="scan",
         category="ai_config",
+        finding_id_prefix="AI-ENV-NOT-GITIGNORED",
         severity="high",
     ),
     ControlDefinition(
@@ -110,6 +113,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify AI/ML packages (openai, langchain, etc.) have pinned versions in requirements.",
         command="scan",
         category="ai_config",
+        finding_id_prefix="AI-UNPINNED-DEPS",
         severity="medium",
     ),
     ControlDefinition(
@@ -128,6 +132,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Detect code that executes LLM-generated output via eval(), exec(), subprocess, or os.system().",
         command="scan",
         category="ai_config",
+        finding_id_prefix="AI-UNSAFE-EXEC",
         severity="critical",
     ),
     ControlDefinition(
@@ -191,6 +196,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Detect credentials, internal URLs, or database references in system prompts.",
         command="scan",
         category="ai_config",
+        finding_id_prefix="AI-SYSTEMPROMPT-LEAK",
         severity="high",
     ),
     ControlDefinition(

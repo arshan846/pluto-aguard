@@ -31,7 +31,7 @@ Pluto AgentGuard maps every finding, test, and evidence artifact to OWASP MCP To
 
 ## Control Coverage Summary
 
-- **OWASP MCP Top 10**: 9/10 risks covered (MCP09 planned)
-- **OWASP LLM Top 10**: 6/10 risks covered
+- **OWASP MCP Top 10**: 9/10 risks mapped; varying depth of automated coverage (MCP09 planned)
+- **OWASP LLM Top 10**: 6/10 risks mapped
 - **Total controls implemented**: 20+
 - **Attack test scenarios**: 17

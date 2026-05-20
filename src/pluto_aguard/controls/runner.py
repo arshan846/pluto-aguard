@@ -46,7 +46,14 @@ def evaluate_controls(all_findings: list[Finding]) -> list[ControlResult]:
     results: list[ControlResult] = []
 
     for control in CONTROLS:
-        matching_findings = [finding for finding in all_findings if finding.category == control.category]
+        # Precise matching: use finding_id_prefix if set, otherwise category
+        if control.finding_id_prefix:
+            matching_findings = [
+                f for f in all_findings
+                if f.category == control.category and f.id.startswith(control.finding_id_prefix)
+            ]
+        else:
+            matching_findings = [f for f in all_findings if f.category == control.category]
 
         if control.command in ("test", "monitor", "evidence", "baseline"):
             results.append(
@@ -229,7 +236,7 @@ def _print_summary(results: list[ControlResult]) -> None:
 
     console.print("  ─────────────────────────────────────")
     console.print("  📊 [bold]Summary[/bold]")
-    console.print(f"     OWASP MCP Coverage: [bold]{mcp_covered}/10[/bold] risks")
+    console.print(f"     OWASP MCP Mapped: [bold]{mcp_covered}/10[/bold] risks")
     console.print(
         f"     Controls: [green]{passed} passed[/green] · [red]{failed} failed[/red] · "
         f"[yellow]{not_tested} not tested[/yellow] · {total} total"
