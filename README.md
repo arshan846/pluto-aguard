@@ -39,8 +39,10 @@ graph LR
     A[Your Agent Project] -->|aguard scan| B[🔍 Static Scanner]
     A -->|aguard monitor| C[📡 Behavioral Monitor]
     A -->|aguard whatif| D[🔮 Policy Simulator]
+    A -->|aguard test| T[🎯 Adversarial Tester]
     A -->|aguard evidence| E2[📋 Launch Readiness]
     A -->|aguard baseline| F2[📏 Drift Detection]
+    A -->|aguard owasp| O2[🛡️ OWASP Report]
 
     B --> E[MCP Config Vulnerabilities]
     B --> F[Hardcoded Secrets]
@@ -48,15 +50,17 @@ graph LR
 
     C --> H[Unauthorized Tool Calls]
     C --> I[Permission Drift]
-    C --> J[Data Access Violations]
 
     D --> K[Risk Score Before/After]
-    D --> L[Policy Recommendations]
+
+    T --> T1[17 Attack Scenarios]
+    T --> T2[Policy Pass/Fail]
 
     E2 --> N[Launch Readiness Packet]
-    F2 --> O[Baseline vs Current Diff]
+    F2 --> P[Baseline vs Current Diff]
+    O2 --> Q[Control Coverage Matrix]
 
-    E & F & G & H & I & J & K & L & N & O --> M[📊 Report<br/>Markdown / HTML / JSON / SARIF]
+    E & F & G & H & I & K & T1 & T2 & N & P & Q --> M[📊 Report<br/>Markdown / HTML / JSON / SARIF]
 ```
 
 ### Seven Commands
@@ -109,7 +113,7 @@ pip install -e ".[dev]"
 
 ```bash
 aguard --version
-# pluto-aguard, version 0.7.0
+# pluto-aguard, version 0.9.0
 ```
 
 ---
@@ -434,6 +438,87 @@ $ aguard baseline compare ./my-project/ --fail-on-drift
 
 ---
 
+### 6. `aguard test` — Adversarial Policy Simulation
+
+Simulates attack scenarios against your agent's declared policy and reports which attacks the policy catches vs. misses. Pure policy simulation — no LLM or running agent needed.
+
+**5 attack packs, 17 scenarios:**
+
+| Pack | Scenarios | What It Tests |
+|---|---|---|
+| `prompt-injection` | 4 | Instruction override, role hijacking, indirect injection, encoded payloads |
+| `data-exfiltration` | 4 | File export, network exfil, email exfil, SQL data dump |
+| `permission-escalation` | 4 | Write on read-only, approval bypass, sudo escalation, file deletion |
+| `approval-bypass` | 3 | Urgency bypass, claimed pre-auth, batch bypass |
+| `tool-poisoning` | 2 | Hidden instructions, rug-pull updates |
+
+**Example output:**
+
+```
+$ aguard test --policy agent-policy.yaml --attack-pack all
+
+🎯 Adversarial Policy Simulation
+
+  Policy: agent-policy.yaml
+  Agent: data-analyst-agent
+  Scenarios: 17
+
+  ┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+  ┃ Result   ┃ ID       ┃ Attack Scenario                    ┃ Tool Attempted     ┃
+  ┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+  │ ✅ PASS  │ PI-001   │ Direct instruction override        │ execute            │
+  │ ✅ PASS  │ DE-001   │ File export of sensitive data      │ file_write         │
+  │ ❌ FAIL  │ DE-004   │ SQL data dump                      │ sql_query          │
+  │ ✅ PASS  │ PE-003   │ Sudo/admin escalation              │ sudo               │
+  └──────────┴──────────┴────────────────────────────────────┴────────────────────┘
+
+  📊 Results: 16 blocked · 1 missed · 17 total
+  ⚠️  1 attack (6%) would succeed against this policy
+
+  Recommended fixes:
+    → Add sql_query to denied_tools
+    → Add sql_query to require_human_approval
+```
+
+CI gate: `aguard test --policy policy.yaml --fail-on-miss` exits with code 1 if any attacks succeed.
+
+---
+
+### 7. `aguard owasp` — OWASP Control Coverage Report
+
+Evaluates 20 security controls mapped to OWASP MCP Top 10 and LLM Top 10, reporting pass/fail/not-tested per risk category.
+
+```
+$ aguard owasp ./my-project/
+
+🛡️  OWASP Coverage Report
+
+  ❌ MCP01:2025 Token Mismanagement & Secret Exposure: 3 failed, 1 passed
+    ✗ AGC-MCP01-001: No hardcoded secrets in agent configurations
+    ✓ AGC-MCP01-002: No static long-lived tokens on MCP servers
+    ✗ AGC-MCP01-003: No secrets in Dockerfile ENV directives
+    ✗ AGC-MCP01-004: .env files excluded from version control
+
+  ✅ MCP07:2025 Insufficient Authentication & Authorization: 2 passed
+    ✓ AGC-MCP07-001: Remote MCP servers have authentication
+    ✓ AGC-MCP07-002: MCP servers use encrypted transport (HTTPS)
+
+  ⚠️ MCP08:2025 Lack of Audit and Telemetry: 2 not tested
+    ○ AGC-MCP08-001: Behavioral monitoring configured
+    ○ AGC-MCP08-002: Launch evidence packet generated
+
+  ─────────────────────────────────────
+  📊 Summary
+     OWASP MCP Mapped: 9/10 risks
+     Controls: 8 passed · 6 failed · 6 not tested · 20 total
+```
+
+Scan-based coverage report. Runtime, test, and evidence controls require their respective commands.
+
+See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the full mapping.
+
+---
+
 ## How It Fits Into Your Stack
 
 AgentGuard sits **above** your existing guardrails — it doesn't replace them.
@@ -660,6 +745,8 @@ pluto-aguard/
 - [x] **v0.5** — HTML + SARIF report generators, CI gate flags (`--max-risk`, `--fail-on`)
 - [x] **v0.6** — `aguard evidence` — launch readiness packets with approval checklists
 - [x] **v0.7** — `aguard baseline create` / `aguard baseline compare` — drift detection
+- [x] **v0.8** — `aguard test` — adversarial policy simulation (17 scenarios, 5 attack packs)
+- [x] **v0.9** — `aguard owasp` — OWASP MCP Top 10 control coverage reporting (20 controls)
 - [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen, Foundry)
 - [ ] **v1.1** — Live agent monitoring (real-time webhook / sidecar mode)
 - [ ] **v1.2** — Custom rule authoring SDK

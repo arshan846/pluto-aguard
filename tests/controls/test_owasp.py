@@ -55,7 +55,7 @@ class TestControlEvaluation:
     def test_permission_finding_fails_mcp02(self) -> None:
         findings = [
             Finding(
-                id="test-2",
+                id="PERM-WILDCARD-test-server",
                 title="Wildcard permissions",
                 description="test",
                 severity=Severity.CRITICAL,

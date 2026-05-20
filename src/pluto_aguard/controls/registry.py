@@ -39,6 +39,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Detect static authentication tokens that should be replaced with ephemeral credentials.",
         command="scan",
         category="authentication",
+        finding_id_prefix="AUTH-STATIC-TOKEN",
         severity="medium",
     ),
     ControlDefinition(
@@ -68,6 +69,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Detect MCP servers with wildcard (*) or overly broad permission grants.",
         command="scan",
         category="permissions",
+        finding_id_prefix="PERM-WILDCARD",
         severity="critical",
     ),
     ControlDefinition(
@@ -77,6 +79,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify agents have explicit permission declarations rather than implicit full access.",
         command="scan",
         category="permissions",
+        finding_id_prefix="PERM-UNDECLARED",
         severity="high",
     ),
     ControlDefinition(
@@ -123,6 +126,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify execute, shell, file_write, etc. have human-in-the-loop gates.",
         command="scan",
         category="permissions",
+        finding_id_prefix="PERM-NO-HITL",
         severity="high",
     ),
     ControlDefinition(
@@ -160,6 +164,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify all remote MCP servers have authentication configured.",
         command="scan",
         category="authentication",
+        finding_id_prefix="AUTH-MISSING",
         severity="critical",
     ),
     ControlDefinition(
@@ -169,6 +174,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify MCP servers use HTTPS, not HTTP.",
         command="scan",
         category="transport",
+        finding_id_prefix="TRANSPORT-HTTP",
         severity="high",
     ),
     ControlDefinition(
@@ -206,6 +212,7 @@ CONTROLS: list[ControlDefinition] = [
         description="Verify agents have configured timeout and rate limit constraints.",
         command="scan",
         category="permissions",
+        finding_id_prefix="PERM-NO-LIMITS",
         severity="medium",
     ),
 ]
