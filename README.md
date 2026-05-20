@@ -1,11 +1,27 @@
 # 🛡️ Pluto AgentGuard
 
-**Open-source launch gate for MCP-enabled AI agents. Detect risky permissions, insecure tools, missing approval gates, and behavioral drift before agents ship.**
+**OWASP-aligned launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against adversarial attacks, simulates risk impact before you change anything, maps results to OWASP MCP Top 10, and generates launch evidence.**
 
 [![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/pluto-aguard)](https://pypi.org/project/pluto-aguard/)
+
+---
+
+## What Makes This Different
+
+MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Scanning is table stakes.** AgentGuard goes beyond scanning:
+
+| Capability | Scanners | **AgentGuard** |
+|---|---|---|
+| Detect secrets & misconfigs | ✅ | ✅ |
+| Adversarial policy simulation (17 attack scenarios) | ❌ | ✅ `aguard test` |
+| "What-if" risk impact before applying changes | ❌ | ✅ `aguard whatif` |
+| OWASP MCP Top 10 control coverage report (20 controls) | ❌ | ✅ `aguard owasp` |
+| Launch readiness evidence packets | ❌ | ✅ `aguard evidence` |
+| Baseline drift detection over time | ❌ | ✅ `aguard baseline` |
+| Behavioral trace audit with approval model | ❌ | ✅ `aguard monitor` |
 
 ---
 
@@ -32,7 +48,7 @@ Guardrails (Azure AI Content Safety, NeMo, Guardrails AI) protect what LLMs **sa
 
 ## What It Does
 
-Pluto AgentGuard is a **CLI tool** that you run against your AI agent project to find security issues, monitor behavior, simulate policy changes, and generate launch evidence.
+Pluto AgentGuard is a **CLI tool + GitHub Action** that you run against your AI agent project to test policies, simulate risk, generate OWASP coverage reports, and produce launch evidence. Scanning is just step one.
 
 ```mermaid
 graph LR

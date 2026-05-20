@@ -1,0 +1,93 @@
+name: 'Pluto AgentGuard'
+description: 'OWASP-aligned security scanner and launch gate for AI agents. Scan, test, and generate OWASP coverage reports.'
+author: 'Arpitha Dhanapathi'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  path:
+    description: 'Path to scan'
+    required: false
+    default: '.'
+  max-risk:
+    description: 'Maximum acceptable risk score (0-100). Fails if exceeded.'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Minimum severity to fail on (critical, high, medium, low)'
+    required: false
+    default: ''
+  format:
+    description: 'Output format (text, json, html, sarif)'
+    required: false
+    default: 'text'
+  policy:
+    description: 'Path to agent policy file for adversarial testing'
+    required: false
+    default: ''
+  attack-pack:
+    description: 'Attack pack for adversarial testing (all, prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning)'
+    required: false
+    default: ''
+  sarif-output:
+    description: 'Path for SARIF output file'
+    required: false
+    default: ''
+
+outputs:
+  risk-score:
+    description: 'The overall risk score from the scan'
+  findings-count:
+    description: 'Total number of security findings'
+  sarif-file:
+    description: 'Path to SARIF output file (if generated)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Pluto AgentGuard
+      shell: bash
+      run: pip install pluto-aguard
+
+    - name: Run security scan
+      shell: bash
+      run: |
+        SCAN_ARGS="${{ inputs.path }}"
+
+        if [ -n "${{ inputs.max-risk }}" ]; then
+          SCAN_ARGS="$SCAN_ARGS --max-risk ${{ inputs.max-risk }}"
+        fi
+
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          SCAN_ARGS="$SCAN_ARGS --fail-on ${{ inputs.fail-on }}"
+        fi
+
+        if [ -n "${{ inputs.sarif-output }}" ]; then
+          SCAN_ARGS="$SCAN_ARGS --format sarif --output ${{ inputs.sarif-output }}"
+        elif [ "${{ inputs.format }}" != "text" ]; then
+          SCAN_ARGS="$SCAN_ARGS --format ${{ inputs.format }}"
+        fi
+
+        aguard scan $SCAN_ARGS
+
+    - name: Run adversarial policy test
+      if: inputs.policy != ''
+      shell: bash
+      run: |
+        TEST_ARGS="--policy ${{ inputs.policy }}"
+
+        if [ -n "${{ inputs.attack-pack }}" ]; then
+          TEST_ARGS="$TEST_ARGS --attack-pack ${{ inputs.attack-pack }}"
+        fi
+
+        aguard test $TEST_ARGS --fail-on-miss
+
+    - name: Generate OWASP report
+      shell: bash
+      run: aguard owasp ${{ inputs.path }}

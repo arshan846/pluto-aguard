@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pluto-aguard"
 version = "0.9.0"
-description = "Open-source launch gate for MCP-enabled AI agents — scan, monitor, simulate, and generate launch evidence"
+description = "OWASP-aligned launch gate for AI agents — test, simulate, scan, and generate launch evidence"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
