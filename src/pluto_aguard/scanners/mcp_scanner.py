@@ -31,6 +31,35 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Private Key", re.compile(r"-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----")),
     ("GitHub Token", re.compile(r"gh[ps]_[A-Za-z0-9_]{20,}")),
     ("OpenAI Key", re.compile(r"sk-[A-Za-z0-9]{20,}")),
+    ("Anthropic Key", re.compile(r"sk-ant-[A-Za-z0-9\-_]{20,}")),
+    ("Hugging Face Token", re.compile(r"hf_[A-Za-z0-9]{20,}")),
+    ("Google API Key", re.compile(r"AIza[A-Za-z0-9\-_]{35}")),
+    (
+        "Pinecone Key",
+        re.compile(
+            r"(?:pinecone[_-]?(?:api[_-]?)?key)\s*[=:]\s*['\"]?[A-Za-z0-9\-]{20,}",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Cohere Key",
+        re.compile(
+            r"(?:cohere[_-]?(?:api[_-]?)?key)\s*[=:]\s*['\"]?[A-Za-z0-9]{20,}",
+            re.IGNORECASE,
+        ),
+    ),
+    ("Replicate Token", re.compile(r"r8_[A-Za-z0-9]{20,}")),
+    (
+        "Database Password",
+        re.compile(
+            r"(?:db[_-]?pass(?:word)?|database[_-]?password)\s*[=:]\s*['\"]?[^\s'\"]{8,}",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Generic Secret",
+        re.compile(r"(?:secret|password|passwd|token)\s*[=:]\s*['\"]?[A-Za-z0-9/+=\-_]{16,}", re.IGNORECASE),
+    ),
     ("Azure Key", re.compile(r"(?:AccountKey|SharedAccessKey)\s*=\s*[A-Za-z0-9+/=]{40,}")),
     ("Connection String", re.compile(r"(?:mongodb|postgres|postgresql|mysql|redis)://[^\s\"']*:[^\s\"']*@")),
     ("Slack Token", re.compile(r"xox[bpors]-[A-Za-z0-9\-]+")),

@@ -9,6 +9,7 @@ from pathlib import Path
 from rich.console import Console
 
 from pluto_aguard.models import Finding, RiskScore, ScanResult, Severity
+from pluto_aguard.scanners.ai_config_scanner import scan_ai_configs
 from pluto_aguard.scanners.mcp_scanner import scan_directory
 from pluto_aguard.scanners.permission_scanner import (
     calculate_permission_risk_score,
@@ -46,6 +47,11 @@ def run_scan(
     console.print("  [dim]Scanning MCP configurations and secrets...[/dim]")
     mcp_findings = scan_directory(project_path)
     all_findings.extend(mcp_findings)
+
+    # Run AI framework config scanner
+    console.print("  [dim]Scanning AI framework configurations...[/dim]")
+    ai_findings = scan_ai_configs(project_path)
+    all_findings.extend(ai_findings)
 
     # Run permission scanner on agent configs
     console.print("  [dim]Scanning agent permission configurations...[/dim]")

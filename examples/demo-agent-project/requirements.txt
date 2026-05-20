@@ -1,0 +1,6 @@
+openai
+langchain
+anthropic
+chromadb
+flask
+requests
