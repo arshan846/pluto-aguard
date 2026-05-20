@@ -107,7 +107,7 @@ pip install -e ".[dev]"
 
 ```bash
 aguard --version
-# pluto-aguard, version 0.1.0
+# pluto-aguard, version 0.7.0
 ```
 
 ---
@@ -122,13 +122,27 @@ git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
 cd pluto-aguard
 
 # 1. SCAN — find vulnerabilities in the intentionally insecure example
-aguard scan ./examples/
+aguard scan ./examples/demo-agent-project/
 
 # 2. MONITOR — replay agent traces and detect policy violations
 aguard monitor --trace-file ./examples/sample-traces.jsonl --policy ./examples/agent-policy.yaml
 
 # 3. WHATIF — simulate policy changes on the insecure config
 aguard whatif --config ./examples/insecure-agent-config.yaml
+
+# 4. TEST — run adversarial attacks against the policy
+aguard test --policy ./examples/agent-policy.yaml --attack-pack all
+
+# 5. EVIDENCE — generate a launch readiness packet
+aguard evidence ./examples/ --config ./examples/insecure-agent-config.yaml \
+  --policy ./examples/agent-policy.yaml
+
+# 6. BASELINE — save a snapshot, then check for drift later
+aguard baseline create ./examples/
+aguard baseline compare ./examples/
+
+# 7. OWASP — generate OWASP MCP Top 10 coverage report
+aguard owasp ./examples/demo-agent-project/
 ```
 
 ---
@@ -137,7 +151,7 @@ aguard whatif --config ./examples/insecure-agent-config.yaml
 
 ### 1. `aguard scan` — Static Security Analysis
 
-Scans your project directory for MCP configuration files, agent configs, and source code. Detects vulnerabilities mapped to the [OWASP MCP Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+Scans your project directory for MCP configuration files, agent configs, and source code. Detects vulnerabilities mapped to the [OWASP MCP Top 10](https://owasp.org/www-project-mcp-top-10/).
 
 **What it scans for:**
 
