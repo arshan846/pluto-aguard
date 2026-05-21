@@ -21,6 +21,8 @@ MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-s
 | Baseline drift detection | ❌ | ✅ `aguard baseline` |
 | Behavioral trace audit with approval model | ❌ | ✅ `aguard monitor` |
 
+📺 **[Interactive demo](docs/demo.html)** — see all 7 commands in action (clone repo, open in browser)
+
 ## Quick Start (60 seconds)
 
 ```bash
