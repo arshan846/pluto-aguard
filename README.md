@@ -9,7 +9,7 @@
 
 ## What Makes This Different
 
-MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Scanning is table stakes.** AgentGuard goes beyond:
+MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Most focus on config detection.** AgentGuard adds policy simulation, OWASP control reporting, drift detection, and launch evidence:
 
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
@@ -56,7 +56,7 @@ No cloud accounts. No API keys. Runs entirely locally.
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@main
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.0
   with:
     path: '.'
     max-risk: '50'

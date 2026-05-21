@@ -45,7 +45,7 @@ runs:
 
     - name: Install Pluto AgentGuard
       shell: bash
-      run: pip install pluto-aguard
+      run: pip install pluto-aguard==0.9.0
 
     - name: Run security scan
       shell: bash

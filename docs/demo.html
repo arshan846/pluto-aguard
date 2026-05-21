@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pluto AgentGuard — Demo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;justify-content:center;padding:2rem}
+.container{max-width:820px;width:100%}
+h1{text-align:center;font-size:1.8rem;margin-bottom:.3rem}
+h1 span{color:#f87171}
+.subtitle{text-align:center;color:#94a3b8;font-size:.95rem;margin-bottom:1.5rem}
+.term{background:#0c0c0c;border:1px solid #333;border-radius:12px;overflow:hidden;margin-bottom:1.5rem;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:.82rem}
+.term-h{background:#1a1a1a;padding:.5rem .8rem;display:flex;gap:.3rem;align-items:center}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot.r{background:#ff5f56}.dot.y{background:#ffbd2e}.dot.g{background:#27c93f}
+.term-title{color:#666;font-size:.7rem;margin-left:.5rem}
+.term-b{padding:1rem 1.2rem;line-height:1.8;overflow-x:auto;min-height:80px}
+.cmd{color:#86efac}.dim{color:#555}.crit{color:#f87171}.high{color:#fb923c}.med{color:#facc15}.grn{color:#4ade80}.bold{font-weight:bold;color:#fff}.blue{color:#60a5fa}
+.typed{overflow:hidden;white-space:nowrap;border-right:2px solid #86efac;animation:typing 1.5s steps(60) forwards,blink .7s step-end infinite alternate}
+@keyframes typing{from{width:0}to{width:100%}}
+@keyframes blink{50%{border-color:transparent}}
+.line{opacity:0;animation:fadein .15s forwards}
+@keyframes fadein{to{opacity:1}}
+.nav{display:flex;justify-content:center;gap:.5rem;margin-bottom:1rem}
+.nav button{padding:.5rem 1rem;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#94a3b8;cursor:pointer;font-size:.8rem;font-weight:600;transition:all .2s}
+.nav button:hover{background:#293548;color:#e2e8f0}
+.nav button.active{background:#0f172a;color:#f87171;border-color:#f87171}
+.demo{display:none}.demo.active{display:block}
+.note{text-align:center;color:#475569;font-size:.75rem;margin-top:1rem}
+.note a{color:#f87171;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🛡️ Pluto <span>AgentGuard</span> — Live Demo</h1>
+<p class="subtitle">OWASP-aligned launch gate for AI agents · v0.9.0</p>
+
+<div class="nav">
+<button class="active" onclick="show('scan')">🔍 scan</button>
+<button onclick="show('test')">🎯 test</button>
+<button onclick="show('owasp')">🛡️ owasp</button>
+<button onclick="show('whatif')">🔮 whatif</button>
+<button onclick="show('evidence')">📋 evidence</button>
+<button onclick="show('baseline')">📏 baseline</button>
+</div>
+
+<!-- SCAN -->
+<div class="demo active" id="d-scan">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard scan — finds 18 real issues in a demo AI project</span></div><div class="term-b" id="scan-output"></div></div>
+</div>
+
+<!-- TEST -->
+<div class="demo" id="d-test">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard test — 17 adversarial attacks against your policy</span></div><div class="term-b" id="test-output"></div></div>
+</div>
+
+<!-- OWASP -->
+<div class="demo" id="d-owasp">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard owasp — OWASP MCP Top 10 coverage report</span></div><div class="term-b" id="owasp-output"></div></div>
+</div>
+
+<!-- WHATIF -->
+<div class="demo" id="d-whatif">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard whatif — simulate policy changes, see risk drop</span></div><div class="term-b" id="whatif-output"></div></div>
+</div>
+
+<!-- EVIDENCE -->
+<div class="demo" id="d-evidence">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard evidence — generate launch readiness packet</span></div><div class="term-b" id="evidence-output"></div></div>
+</div>
+
+<!-- BASELINE -->
+<div class="demo" id="d-baseline">
+<div class="term"><div class="term-h"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div><span class="term-title">aguard baseline — snapshot + drift detection</span></div><div class="term-b" id="baseline-output"></div></div>
+</div>
+
+<p class="note">
+<a href="https://github.com/arpitha-dhanapathi/pluto-aguard">GitHub</a> ·
+<a href="https://pypi.org/project/pluto-aguard/">PyPI</a> ·
+<code style="background:#1e293b;padding:2px 6px;border-radius:4px;font-size:.75rem">pip install pluto-aguard</code>
+</p>
+</div>
+
+<script>
+const demos = {
+scan: [
+{t:'cmd', s:'$ aguard scan ./my-agent-project/'},
+{t:'', s:''},
+{t:'bold', s:'🔍 Scanning ./my-agent-project...'},
+{t:'', s:''},
+{t:'dim', s:'  Scanning MCP configurations and secrets...'},
+{t:'dim', s:'  Scanning AI framework configurations...'},
+{t:'dim', s:'  Scanning agent permission configurations...'},
+{t:'crit', s:'  🔴 CRITICAL: Unsafe execution of LLM output: eval() on LLM output (MCP05:2025)'},
+{t:'dim', s:'     📄 agent.py:24'},
+{t:'high', s:'  🟠 HIGH: Hardcoded OpenAI Key detected (MCP01:2025)'},
+{t:'dim', s:'     📄 .env:1 · Evidence: sk-p****cdef'},
+{t:'high', s:'  🟠 HIGH: Hardcoded Anthropic Key detected (MCP01:2025)'},
+{t:'dim', s:'     📄 .env:2'},
+{t:'high', s:'  🟠 HIGH: Hardcoded Connection String detected (MCP01:2025)'},
+{t:'dim', s:'     📄 .env:4 · Evidence: postgres://admin:****@db.prod.acme.com'},
+{t:'high', s:'  🟠 HIGH: Secret in Dockerfile ENV (MCP01:2025)'},
+{t:'dim', s:'     📄 Dockerfile:3'},
+{t:'high', s:'  🟠 HIGH: .env file not in .gitignore (MCP01:2025)'},
+{t:'high', s:'  🟠 HIGH: LangChain dangerous requests allowed (MCP05:2025)'},
+{t:'dim', s:'     📄 chain.py:4'},
+{t:'med', s:'  🟡 MEDIUM: LangChain agent verbose mode enabled'},
+{t:'med', s:'  🟡 MEDIUM: Agent container runs as root (Dockerfile)'},
+{t:'med', s:'  🟡 MEDIUM: Unpinned AI dependencies in requirements.txt (MCP04:2025)'},
+{t:'', s:''},
+{t:'crit', s:'  📊 Risk Score: 100/100 ██████████████████████████████████████████████████'},
+{t:'', s:'  📋 Findings: <span class="crit">1 critical</span> · <span class="high">14 high</span> · <span class="med">3 medium</span>'},
+{t:'dim', s:'  📂 Scanned 5 files in 155ms'},
+],
+test: [
+{t:'cmd', s:'$ aguard test --policy agent-policy.yaml --attack-pack all'},
+{t:'', s:''},
+{t:'bold', s:'🎯 Adversarial Policy Simulation'},
+{t:'', s:''},
+{t:'dim', s:'  Policy: agent-policy.yaml'},
+{t:'dim', s:'  Agent: data-analyst-agent'},
+{t:'dim', s:'  Attack pack: all'},
+{t:'dim', s:'  Scenarios: 17'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ PASS  PI-001  Direct instruction override         execute        Blocked'},
+{t:'grn', s:'  ✅ PASS  PI-002  Role hijacking via system prompt     shell          Blocked'},
+{t:'grn', s:'  ✅ PASS  PI-003  Indirect injection via tool desc     stripe.refund  Blocked'},
+{t:'grn', s:'  ✅ PASS  PI-004  Encoded instruction injection        execute        Blocked'},
+{t:'grn', s:'  ✅ PASS  DE-001  File export of sensitive data        file_write     Blocked'},
+{t:'grn', s:'  ✅ PASS  DE-002  Network exfiltration via curl        execute        Blocked'},
+{t:'grn', s:'  ✅ PASS  DE-003  Email exfiltration                   send_email     Blocked'},
+{t:'crit',s:'  ❌ FAIL  DE-004  SQL data dump                        sql_query      NOT caught'},
+{t:'grn', s:'  ✅ PASS  PE-001  Write on read-only tool              sql_query      Blocked'},
+{t:'grn', s:'  ✅ PASS  PE-002  Approval bypass for restricted       stripe.refund  Blocked'},
+{t:'grn', s:'  ✅ PASS  PE-003  Sudo/admin escalation                sudo           Blocked'},
+{t:'grn', s:'  ✅ PASS  PE-004  File system manipulation             file_delete    Blocked'},
+{t:'grn', s:'  ✅ PASS  AB-001  Urgent action without approval       deploy         Blocked'},
+{t:'grn', s:'  ✅ PASS  AB-002  Claimed pre-authorization            file_write     Blocked'},
+{t:'grn', s:'  ✅ PASS  AB-003  Batch action to avoid approval       stripe.refund  Blocked'},
+{t:'grn', s:'  ✅ PASS  TP-001  Hidden instructions in tool output   execute        Blocked'},
+{t:'grn', s:'  ✅ PASS  TP-002  Rug-pull tool update                 shell          Blocked'},
+{t:'', s:''},
+{t:'', s:'  📊 Results: <span class="grn">16 blocked</span> · <span class="crit">1 missed</span> · 17 total'},
+{t:'crit', s:'  ⚠️  1 attack (6%) would succeed against this policy'},
+{t:'', s:''},
+{t:'bold', s:'  Recommended fixes:'},
+{t:'', s:'    → Add <span class="bold">sql_query</span> to denied_tools'},
+{t:'', s:'    → Add <span class="bold">sql_query</span> to require_human_approval'},
+],
+owasp: [
+{t:'cmd', s:'$ aguard owasp ./my-project/'},
+{t:'', s:''},
+{t:'bold', s:'🛡️  OWASP Coverage Report'},
+{t:'', s:''},
+{t:'dim', s:'  Project: ./my-project'},
+{t:'dim', s:'  Running security scans...'},
+{t:'', s:''},
+{t:'crit', s:'  ❌ MCP01:2025 Token Mismanagement & Secret Exposure: 3 failed, 1 passed'},
+{t:'crit', s:'    ✗ AGC-MCP01-001: No hardcoded secrets in agent configurations'},
+{t:'dim', s:'      → 11 finding(s)'},
+{t:'grn', s:'    ✓ AGC-MCP01-002: No static long-lived tokens on MCP servers'},
+{t:'crit', s:'    ✗ AGC-MCP01-003: No secrets in Dockerfile ENV directives'},
+{t:'crit', s:'    ✗ AGC-MCP01-004: .env files excluded from version control'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ MCP02:2025 Privilege Escalation via Scope Creep: 2 passed, 1 not tested'},
+{t:'grn', s:'    ✓ AGC-MCP02-001: No wildcard permissions on MCP servers'},
+{t:'grn', s:'    ✓ AGC-MCP02-002: Agent permissions explicitly declared'},
+{t:'med', s:'    ○ AGC-MCP02-003: No permission drift from baseline'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ MCP07:2025 AuthN/AuthZ: 2 passed'},
+{t:'grn', s:'    ✓ AGC-MCP07-001: Remote MCP servers have authentication'},
+{t:'grn', s:'    ✓ AGC-MCP07-002: MCP servers use encrypted transport (HTTPS)'},
+{t:'', s:''},
+{t:'crit', s:'  ❌ MCP10:2025 Context Injection & Over-Sharing: 1 failed'},
+{t:'crit', s:'    ✗ AGC-MCP10-001: No sensitive information in system prompts'},
+{t:'', s:''},
+{t:'dim', s:'  ─────────────────────────────────────'},
+{t:'bold', s:'  📊 Summary'},
+{t:'', s:'     OWASP MCP Mapped: <span class="bold">9/10</span> risks'},
+{t:'', s:'     Controls: <span class="grn">8 passed</span> · <span class="crit">6 failed</span> · <span class="med">6 not tested</span> · 20 total'},
+],
+whatif: [
+{t:'cmd', s:'$ aguard whatif --config agent-config.yaml'},
+{t:'', s:''},
+{t:'bold', s:'🔮 What-If Policy Simulator'},
+{t:'', s:''},
+{t:'dim', s:'  Agent config: agent-config.yaml'},
+{t:'', s:'  Current Risk Score: <span class="bold">100/100</span>'},
+{t:'', s:''},
+{t:'bold', s:'  Simulating policy changes:'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ Restrict SQL tool to SELECT-only queries              68  ↓ 17%'},
+{t:'', s:'     <span class="dim">The agent currently has unrestricted SQL access including'},
+{t:'', s:'     <span class="dim">INSERT/UPDATE/DELETE. Restricting to SELECT-only eliminates'},
+{t:'', s:'     <span class="dim">data modification risk.</span>'},
+{t:'grn', s:'  ✅ Add human-in-the-loop for file operations              54  ↓ 34%'},
+{t:'grn', s:'  ✅ Rotate API keys to ephemeral tokens                    48  ↓ 41%'},
+{t:'grn', s:'  ✅ Add rate limits (100 calls/min) + timeout              44  ↓ 47%'},
+{t:'grn', s:'  ✅ Restrict outbound network to allowlist                 38  ↓ 54%'},
+{t:'grn', s:'  ✅ Run agent in sandboxed environment                     28  ↓ 65%'},
+{t:'', s:''},
+{t:'bold', s:'  Combined impact:'},
+{t:'grn', s:'  💡 Risk drops from 100 → 28 (↓72%)'},
+{t:'', s:'  📌 Permission restrictions are the highest-impact changes.'},
+],
+evidence: [
+{t:'cmd', s:'$ aguard evidence . --config agent.yaml --policy policy.yaml'},
+{t:'', s:''},
+{t:'bold', s:'📋 Generating launch readiness packet'},
+{t:'', s:''},
+{t:'dim', s:'  Scanning project: ./my-project'},
+{t:'dim', s:'  Loading config: agent.yaml'},
+{t:'dim', s:'  Loading policy: policy.yaml'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ Launch readiness packet saved to launch-readiness.md'},
+{t:'', s:''},
+{t:'dim', s:'  Contents:'},
+{t:'', s:'    • Risk Summary — score 100/100 (Critical)'},
+{t:'', s:'    • Security Findings — 1 critical, 14 high, 3 medium'},
+{t:'', s:'    • Tool Permissions — 6 tools, all undeclared'},
+{t:'', s:'    • Policy Coverage — 3 allowed, 4 denied, 3 HITL'},
+{t:'', s:'    • Required Mitigations — 4 action items'},
+{t:'', s:'    • Launch Approval Checklist — 9 items'},
+{t:'', s:''},
+{t:'crit', s:'  ⛔ Launch decision: BLOCKED'},
+],
+baseline: [
+{t:'cmd', s:'$ aguard baseline create .'},
+{t:'', s:''},
+{t:'bold', s:'📏 Creating security baseline'},
+{t:'dim', s:'  Scanning project: ./my-project'},
+{t:'grn', s:'  ✅ Baseline saved to .aguard-baseline.json'},
+{t:'', s:''},
+{t:'dim', s:'  # ... time passes, you fix some issues ...'},
+{t:'', s:''},
+{t:'cmd', s:'$ aguard baseline compare .'},
+{t:'', s:''},
+{t:'bold', s:'📏 Baseline Drift Report'},
+{t:'dim', s:'  Baseline: .aguard-baseline.json (created 2026-05-18)'},
+{t:'', s:'  Risk Score: 72 → 45 <span class="grn">(↓ 27 points)</span>'},
+{t:'', s:''},
+{t:'grn', s:'  ✅ Resolved (3):'},
+{t:'', s:'    - Hardcoded OpenAI Key in .env:3'},
+{t:'', s:'    - Missing auth on remote MCP server'},
+{t:'', s:'    - No timeout on data-agent'},
+{t:'', s:''},
+{t:'crit', s:'  🆕 New (1):'},
+{t:'', s:'    - Static long-lived token on slack-server'},
+{t:'', s:''},
+{t:'dim', s:'  ➡️ Unchanged (2):'},
+{t:'', s:'    - Wildcard permissions on postgres-server'},
+{t:'', s:'    - Dangerous tool \'execute\' without HITL'},
+{t:'', s:''},
+{t:'', s:'  Summary: <span class="grn">3 resolved</span>, <span class="crit">1 new</span>, 2 unchanged'},
+],
+};
+
+let currentDemo = 'scan';
+let animTimeout = null;
+
+function show(name) {
+  document.querySelectorAll('.demo').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('d-'+name).classList.add('active');
+  event.target.classList.add('active');
+  currentDemo = name;
+  animate(name);
+}
+
+function animate(name) {
+  if (animTimeout) clearTimeout(animTimeout);
+  const el = document.getElementById(name+'-output');
+  const lines = demos[name];
+  el.innerHTML = '';
+  let i = 0;
+  function addLine() {
+    if (i >= lines.length) return;
+    const line = lines[i];
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.style.animationDelay = (i * 0.06) + 's';
+    if (line.t === 'cmd') {
+      div.innerHTML = '<span class="cmd">' + line.s + '</span>';
+    } else if (line.t) {
+      div.innerHTML = '<span class="' + line.t + '">' + line.s + '</span>';
+    } else {
+      div.innerHTML = line.s || '&nbsp;';
+    }
+    el.appendChild(div);
+    i++;
+    animTimeout = setTimeout(addLine, 60);
+  }
+  addLine();
+}
+
+// Auto-start scan animation
+window.onload = () => animate('scan');
+</script>
+</body>
+</html>
