@@ -44,7 +44,8 @@ class TestBaselineRunner:
         compare_baseline(str(project_dir), baseline_path=str(baseline_file))
 
         output = capsys.readouterr().out
-        assert "🆕 New (1):" in output
+        # Should detect new findings (auth + context safety checks)
+        assert "New" in output
         assert "No authentication on remote MCP server 'remote'" in output
 
     def test_compare_baseline_detects_resolved_findings(

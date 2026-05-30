@@ -108,6 +108,7 @@ def evidence(path: str, config: str | None, policy: str | None, output: str) -> 
             "permission-escalation",
             "approval-bypass",
             "tool-poisoning",
+            "context-manipulation",
         ]
     ),
     default="all",

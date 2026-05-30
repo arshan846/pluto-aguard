@@ -8,10 +8,10 @@ Pluto AgentGuard maps every finding, test, and evidence artifact to OWASP MCP To
 |---|---|---|---|
 | **MCP01:2025** Token Mismanagement & Secret Exposure | Secret scanning (18+ patterns), static token detection, Dockerfile ENV secrets, .env gitignore check | `scan` | Finding + redacted evidence + remediation |
 | **MCP02:2025** Privilege Escalation via Scope Creep | Wildcard permission detection, allowlist validation, permission risk scoring, baseline drift | `scan`, `baseline` | Risk score + drift report |
-| **MCP03:2025** Tool Poisoning | Tool-description injection scan, tool-poisoning attack pack | `scan`, `test` | Finding + test results |
-| **MCP04:2025** Supply Chain & Dependency Tampering | Unpinned AI dependency detection | `scan` | Finding + package list |
+| **MCP03:2025** Tool Poisoning | Tool-description injection scan, tool-poisoning attack pack, malicious tool manifest scenario | `scan`, `test` | Finding + test results |
+| **MCP04:2025** Supply Chain & Dependency Tampering | Unpinned AI dependency detection, MCP server manifest poisoning scenario | `scan`, `test` | Finding + package list |
 | **MCP05:2025** Command Injection & Execution | Dangerous tool detection, HITL checks, denied tool monitoring, eval/exec on LLM output detection | `scan`, `monitor`, `test` | Violation report + test results |
-| **MCP06:2025** Intent Flow Subversion | Prompt injection attack pack (4 scenarios) | `test` | Attack test results |
+| **MCP06:2025** Intent Flow Subversion | Prompt injection attack pack (4 scenarios), context manipulation pack (4 scenarios: context window stuffing, multi-turn state confusion, indirect web fetch injection, RAG context poisoning) | `test` | Attack test results |
 | **MCP07:2025** Insufficient Authentication & Authorization | Remote server auth check, insecure HTTP transport detection | `scan` | Finding + remediation |
 | **MCP08:2025** Lack of Audit and Telemetry | Behavioral monitoring, evidence packets, trace analysis | `monitor`, `evidence` | Policy coverage + audit trail |
 | **MCP09:2025** Shadow MCP Servers | — | — | *Planned: v1.0* |
@@ -34,4 +34,4 @@ Pluto AgentGuard maps every finding, test, and evidence artifact to OWASP MCP To
 - **OWASP MCP Top 10**: 9/10 risks mapped; varying depth of automated coverage (MCP09 planned)
 - **OWASP LLM Top 10**: 6/10 risks mapped
 - **Total controls implemented**: 20+
-- **Attack test scenarios**: 17
+- **Attack test scenarios**: 22 (across 6 packs)

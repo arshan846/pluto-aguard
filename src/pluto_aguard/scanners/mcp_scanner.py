@@ -133,6 +133,13 @@ def scan_mcp_config(file_path: Path, config: dict[str, Any]) -> list[Finding]:
         findings.extend(_check_server_transport(file_path, server_name, server_config))
         findings.extend(_check_server_auth(file_path, server_name, server_config))
         findings.extend(_check_tool_definitions(file_path, server_name, server_config))
+        findings.extend(_check_env_secrets(file_path, server_name, server_config))
+        findings.extend(_check_dangerous_server_packages(file_path, server_name, server_config))
+        findings.extend(_check_args_connection_strings(file_path, server_name, server_config))
+        findings.extend(_check_context_safety(file_path, server_name, server_config))
+
+    # Config-level checks (applied once per file, not per server)
+    findings.extend(_check_missing_context_limits(file_path, config))
 
     return findings
 
@@ -343,6 +350,373 @@ def _check_tool_definitions(
     return findings
 
 
+# Env var names that indicate secrets
+_SECRET_ENV_NAMES = re.compile(
+    r"(?i)(API[_-]?KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|AUTH[_-]?KEY|ACCESS[_-]?KEY|PRIVATE[_-]?KEY)",
+)
+
+# Placeholder patterns — values that are clearly not real secrets
+_PLACEHOLDER_VALUE = re.compile(
+    r"(?i)(your[_-]|placeholder|example|changeme|xxx|todo|<your|"
+    r"\$\{|^\{\{|^%[A-Z]|put.*here|pon.*aqui|ضع|replace[_-]|"
+    r"TU[_-]|insert[_-]|CHANGE[_-]|FILL[_-]|ENTER[_-]|"
+    r"\[.*\]$|^<|>$)",
+)
+
+# Known dangerous MCP server packages that grant filesystem/shell/db access
+_DANGEROUS_SERVER_PACKAGES = {
+    "@modelcontextprotocol/server-filesystem": (
+        "filesystem",
+        "Grants read/write access to the local filesystem. An agent can read, "
+        "create, and modify any file within the allowed directories.",
+    ),
+    "@modelcontextprotocol/server-postgres": (
+        "database",
+        "Grants direct SQL access to a PostgreSQL database. An agent can "
+        "read, modify, or delete data without application-level access controls.",
+    ),
+    "@modelcontextprotocol/server-sqlite": (
+        "database",
+        "Grants direct SQL access to a SQLite database.",
+    ),
+    "@executeautomation/playwright-mcp-server": (
+        "browser-automation",
+        "Grants full browser automation capabilities. An agent can navigate "
+        "to arbitrary URLs, fill forms, and exfiltrate page content.",
+    ),
+}
+
+
+def _check_env_secrets(
+    file_path: Path, server_name: str, config: dict[str, Any]
+) -> list[Finding]:
+    """Check env vars for hardcoded secrets (not references or placeholders)."""
+    findings: list[Finding] = []
+
+    env = config.get("env", {})
+    if not isinstance(env, dict):
+        return findings
+
+    for key, value in env.items():
+        if not isinstance(value, str) or not value:
+            continue
+        if not _SECRET_ENV_NAMES.search(key):
+            continue
+        # Skip env-var references like ${ENV_VAR}, {{VAR}}, %VAR%
+        if value.startswith(("${", "{{", "%")) or value == "":
+            continue
+        # Skip obvious placeholders
+        if _PLACEHOLDER_VALUE.search(value):
+            continue
+        # Remaining values with secret-like keys are likely hardcoded
+        if len(value) >= 8:
+            findings.append(Finding(
+                id=f"ENV-SECRET-{server_name}-{key}",
+                title=f"Hardcoded secret in env var '{key}' on server '{server_name}'",
+                description=(
+                    f"MCP server '{server_name}' has env var '{key}' set to a literal value "
+                    "instead of an environment variable reference. Hardcoded secrets in "
+                    "config files can be extracted through prompt injection, log exposure, "
+                    "or repository scraping."
+                ),
+                severity=Severity.HIGH,
+                category="secrets",
+                owasp_id="MCP01:2025",
+                file_path=str(file_path),
+                evidence=f"{key} = {value[:4]}****{value[-4:]}" if len(value) > 8 else f"{key} = ****",
+                remediation=(
+                    f"Use an environment variable reference for '{key}' instead of a literal "
+                    "value. For example: \"${env:MY_SECRET}\" or load from a secrets manager."
+                ),
+            ))
+
+    return findings
+
+
+def _check_dangerous_server_packages(
+    file_path: Path, server_name: str, config: dict[str, Any]
+) -> list[Finding]:
+    """Detect well-known dangerous MCP server packages without HITL gates."""
+    findings: list[Finding] = []
+
+    args = config.get("args", [])
+    if not isinstance(args, list):
+        return findings
+
+    args_str = " ".join(str(a) for a in args)
+
+    for package, (category, risk_desc) in _DANGEROUS_SERVER_PACKAGES.items():
+        if package in args_str:
+            findings.append(Finding(
+                id=f"DANGEROUS-PKG-{server_name}-{category}",
+                title=f"Dangerous MCP server package '{package}' on '{server_name}' without HITL",
+                description=(
+                    f"MCP server '{server_name}' uses '{package}' which grants {category} "
+                    f"access. {risk_desc} Without human-in-the-loop approval, a prompt "
+                    "injection attack could leverage this access for data exfiltration "
+                    "or system compromise."
+                ),
+                severity=Severity.HIGH,
+                category="permissions",
+                owasp_id="MCP05:2025",
+                file_path=str(file_path),
+                evidence=f"Package: {package}",
+                remediation=(
+                    f"Add human-in-the-loop approval for '{server_name}' operations, "
+                    "restrict the allowed directories/tables to the minimum required, "
+                    "and consider using read-only access where possible."
+                ),
+            ))
+
+    # Also detect custom servers with dangerous names
+    command = str(config.get("command", ""))
+    dangerous_name_patterns = [
+        (r"powershell[_-]commander", "shell", "Grants PowerShell command execution"),
+        (r"file[_-]commander", "filesystem", "Grants file management capabilities"),
+        (r"shell[_-](?:server|mcp)", "shell", "Grants shell command execution"),
+    ]
+    combined = f"{command} {args_str} {server_name}"
+    for pattern, cat, desc in dangerous_name_patterns:
+        if re.search(pattern, combined, re.IGNORECASE):
+            findings.append(Finding(
+                id=f"DANGEROUS-CUSTOM-{server_name}-{cat}",
+                title=f"Dangerous custom MCP server '{server_name}' ({cat} access) without HITL",
+                description=(
+                    f"MCP server '{server_name}' appears to grant {cat} access. "
+                    f"{desc}. Without human-in-the-loop approval, this is exploitable "
+                    "through prompt injection."
+                ),
+                severity=Severity.HIGH,
+                category="permissions",
+                owasp_id="MCP05:2025",
+                file_path=str(file_path),
+                remediation=(
+                    f"Add human-in-the-loop approval for '{server_name}' and "
+                    "restrict to the minimum required capabilities."
+                ),
+            ))
+
+    return findings
+
+
+def _check_args_connection_strings(
+    file_path: Path, server_name: str, config: dict[str, Any]
+) -> list[Finding]:
+    """Detect connection strings with embedded credentials in server args."""
+    findings: list[Finding] = []
+
+    args = config.get("args", [])
+    if not isinstance(args, list):
+        return findings
+
+    conn_pattern = re.compile(
+        r"(postgresql?|mysql|mongodb|redis)://[^:]+:[^@]+@"
+    )
+
+    for arg in args:
+        if not isinstance(arg, str):
+            continue
+        match = conn_pattern.search(arg)
+        if match:
+            findings.append(Finding(
+                id=f"CONN-STRING-ARGS-{server_name}",
+                title=f"Connection string with credentials in args for '{server_name}'",
+                description=(
+                    f"MCP server '{server_name}' has a connection string with embedded "
+                    "credentials passed as a command-line argument. These credentials are "
+                    "visible in process listings and shell history."
+                ),
+                severity=Severity.HIGH,
+                category="secrets",
+                owasp_id="MCP01:2025",
+                file_path=str(file_path),
+                evidence=f"{arg[:20]}****" if len(arg) > 20 else "****",
+                remediation=(
+                    "Use environment variables for database credentials instead of "
+                    "embedding them in connection strings. Example: "
+                    "postgresql://${DB_USER}:${DB_PASS}@host/db"
+                ),
+            ))
+
+    # Also check env vars for connection strings with credentials
+    env = config.get("env", {})
+    if isinstance(env, dict):
+        for key, value in env.items():
+            if not isinstance(value, str):
+                continue
+            match = conn_pattern.search(value)
+            if match and not value.startswith(("${", "{{")):
+                findings.append(Finding(
+                    id=f"CONN-STRING-ENV-{server_name}-{key}",
+                    title=f"Connection string with credentials in env '{key}' for '{server_name}'",
+                    description=(
+                        f"Env var '{key}' on MCP server '{server_name}' contains a connection "
+                        "string with embedded credentials."
+                    ),
+                    severity=Severity.HIGH,
+                    category="secrets",
+                    owasp_id="MCP01:2025",
+                    file_path=str(file_path),
+                    evidence=f"{key} = {value[:20]}****" if len(value) > 20 else f"{key} = ****",
+                    remediation=(
+                        "Use environment variable references for the database password. "
+                        "Do not embed credentials in connection strings."
+                    ),
+                ))
+
+    return findings
+
+
+# ─── Runtime Bridge Heuristics ───
+# These static checks flag configurations that are vulnerable to runtime
+# attacks (context stuffing, multi-turn confusion, indirect injection)
+# until the runtime proxy (v1.0) provides proper detection.
+
+# MCP server packages/patterns known to fetch external content
+_EXTERNAL_FETCH_PATTERNS = [
+    (re.compile(r"server-fetch|web-fetch|url-fetch", re.IGNORECASE), "web fetching"),
+    (re.compile(r"server-puppeteer|puppeteer-mcp", re.IGNORECASE), "web scraping"),
+    (re.compile(r"playwright-mcp|playwright-server", re.IGNORECASE), "browser automation"),
+    (re.compile(r"server-brave-search|tavily|serp", re.IGNORECASE), "web search"),
+    (re.compile(r"rag|retrieval|knowledge[_-]base|vector", re.IGNORECASE), "RAG/retrieval"),
+    (re.compile(r"crawl|scrape|spider", re.IGNORECASE), "web crawling"),
+]
+
+
+def _check_context_safety(
+    file_path: Path, server_name: str, config: dict[str, Any]
+) -> list[Finding]:
+    """Flag servers that fetch external content without context safety controls.
+
+    External content is the primary vector for indirect prompt injection,
+    context window stuffing, and retrieval-augmented injection attacks.
+    """
+    findings: list[Finding] = []
+
+    args = config.get("args", [])
+    args_str = " ".join(str(a) for a in args) if isinstance(args, list) else ""
+    command = str(config.get("command", ""))
+    combined = f"{command} {args_str} {server_name}"
+
+    for pattern, capability in _EXTERNAL_FETCH_PATTERNS:
+        if pattern.search(combined):
+            findings.append(Finding(
+                id=f"CONTEXT-EXT-FETCH-{server_name}",
+                title=f"MCP server '{server_name}' fetches external content ({capability}) — indirect injection risk",
+                description=(
+                    f"MCP server '{server_name}' has {capability} capabilities, meaning it "
+                    "retrieves content from external sources and passes it into the agent's "
+                    "context. This is the primary vector for indirect prompt injection: "
+                    "an attacker can embed adversarial instructions in web pages, documents, "
+                    "or search results that the agent will treat as trusted input. "
+                    "Context window stuffing attacks can also push safety constraints out "
+                    "of the agent's context window via oversized responses."
+                ),
+                severity=Severity.MEDIUM,
+                category="context_safety",
+                owasp_id="MCP06:2025",
+                file_path=str(file_path),
+                evidence=f"Detected: {capability} in '{server_name}'",
+                remediation=(
+                    "1. Sanitize external content before injecting into agent context. "
+                    "2. Truncate tool responses to a max token budget to prevent context stuffing. "
+                    "3. Use a content safety filter on retrieved content. "
+                    "4. Consider adding human-in-the-loop for actions triggered after external fetches. "
+                    "5. When available, use the runtime proxy (aguard proxy) for live detection."
+                ),
+            ))
+            break  # One finding per server is enough
+
+    return findings
+
+
+def _check_missing_context_limits(
+    file_path: Path, config: dict[str, Any]
+) -> list[Finding]:
+    """Check MCP config for missing context window and session controls.
+
+    These controls mitigate context stuffing and multi-turn state confusion.
+    Applied at the config level (not per-server).
+    """
+    findings: list[Finding] = []
+
+    servers = config.get("mcpServers", config.get("mcp_servers", config.get("servers", {})))
+    if not isinstance(servers, dict) or not servers:
+        return findings
+
+    # Check for global or per-server max_tokens / max_response_length
+    has_response_limits = False
+    has_session_limits = False
+
+    # Check global config level
+    if config.get("max_tokens") or config.get("max_response_length") or config.get("context_limit"):
+        has_response_limits = True
+    if config.get("max_turns") or config.get("session_timeout") or config.get("max_conversation_turns"):
+        has_session_limits = True
+
+    # Check per-server level
+    for _name, srv in servers.items():
+        if not isinstance(srv, dict):
+            continue
+        if srv.get("max_tokens") or srv.get("max_response_length") or srv.get("maxResponseSize"):
+            has_response_limits = True
+        if srv.get("max_turns") or srv.get("session_timeout") or srv.get("timeout"):
+            has_session_limits = True
+
+    if not has_response_limits:
+        findings.append(Finding(
+            id="CONTEXT-NO-RESPONSE-LIMIT",
+            title="No response size limits on MCP servers — context stuffing risk",
+            description=(
+                "None of the configured MCP servers declare a response size limit "
+                "(max_tokens, max_response_length). Without limits, a compromised or "
+                "malicious tool can return oversized responses that push the agent's "
+                "system prompt and safety constraints out of the context window, "
+                "enabling follow-up attacks."
+            ),
+            severity=Severity.MEDIUM,
+            category="context_safety",
+            owasp_id="MCP10:2025",
+            file_path=str(file_path),
+            remediation=(
+                "Add 'max_response_length' or 'max_tokens' limits to MCP server "
+                "configurations. A typical safe limit is 4000-8000 tokens per tool response. "
+                "Truncate oversized responses rather than passing them to the agent."
+            ),
+        ))
+
+    if not has_session_limits:
+        findings.append(Finding(
+            id="CONTEXT-NO-SESSION-LIMIT",
+            title="No session/turn limits configured — multi-turn confusion risk",
+            description=(
+                "No maximum turn count or session timeout is configured. In long-running "
+                "conversations, agents can gradually lose track of earlier safety constraints "
+                "as the context window fills. An attacker can exploit this by slowly shifting "
+                "the agent's behavior over multiple turns until it forgets its policy."
+            ),
+            severity=Severity.MEDIUM,
+            category="context_safety",
+            owasp_id="MCP06:2025",
+            file_path=str(file_path),
+            remediation=(
+                "Add 'max_turns' (e.g., 20) and 'session_timeout' (e.g., 3600 seconds) "
+                "to limit conversation length. Re-inject system prompt/policy at regular "
+                "intervals in long sessions."
+            ),
+        ))
+
+    return findings
+
+
+def _is_mcp_config(config: dict[str, Any]) -> bool:
+    """Check if a parsed JSON/YAML dict looks like an MCP configuration."""
+    return any(
+        key in config
+        for key in ("mcpServers", "mcp_servers", "servers")
+    )
+
+
 def scan_directory(directory: Path) -> list[Finding]:
     """Scan a directory for MCP configurations and secrets."""
     findings: list[Finding] = []
@@ -361,11 +735,14 @@ def scan_directory(directory: Path) -> list[Finding]:
         "*.py", "*.js", "*.ts",
     ]
 
-    # Scan MCP config files
+    scanned_configs: set[Path] = set()
+
+    # Scan known MCP config file patterns
     for pattern in config_patterns:
         for config_file in directory.rglob(pattern):
             if _should_skip(config_file):
                 continue
+            scanned_configs.add(config_file.resolve())
             try:
                 content = config_file.read_text(encoding="utf-8")
                 if config_file.suffix == ".json":
@@ -379,18 +756,31 @@ def scan_directory(directory: Path) -> list[Finding]:
             except (json.JSONDecodeError, yaml.YAMLError, OSError):
                 continue
 
-    # Scan other files for secrets
+    # Scan other files for secrets AND detect MCP configs by content
     for pattern in secret_scan_patterns:
         for file_path in directory.rglob(pattern):
             if _should_skip(file_path):
                 continue
-            # Skip already-scanned config files
-            if file_path.name in config_patterns:
+            if file_path.resolve() in scanned_configs:
                 continue
             try:
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
                 if len(content) > 500_000:  # Skip very large files
                     continue
+
+                # Try to detect MCP configs by content (catches renamed/prefixed files)
+                if file_path.suffix in (".json", ".yaml", ".yml"):
+                    try:
+                        if file_path.suffix == ".json":
+                            parsed = json.loads(content)
+                        else:
+                            parsed = yaml.safe_load(content)
+                        if isinstance(parsed, dict) and _is_mcp_config(parsed):
+                            findings.extend(scan_mcp_config(file_path, parsed))
+                            scanned_configs.add(file_path.resolve())
+                    except (json.JSONDecodeError, yaml.YAMLError):
+                        pass
+
                 findings.extend(scan_file_for_secrets(file_path, content))
             except OSError:
                 continue

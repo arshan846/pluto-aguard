@@ -18,6 +18,7 @@ class TestAttackPacks:
         assert "permission-escalation" in ATTACK_PACKS
         assert "approval-bypass" in ATTACK_PACKS
         assert "tool-poisoning" in ATTACK_PACKS
+        assert "context-manipulation" in ATTACK_PACKS
         assert "all" in ATTACK_PACKS
 
     def test_all_pack_contains_all_scenarios(self) -> None:
@@ -144,3 +145,27 @@ class TestAdversarialSimulation:
         results = [simulate_attack(s, self.strict_policy) for s in pack]
         pass_count = sum(1 for r in results if r["result"] == "PASS")
         assert pass_count >= len(pack) // 2
+
+    def test_context_manipulation_pack_exists(self) -> None:
+        """Verify the context manipulation pack has expected scenarios."""
+        pack = ATTACK_PACKS["context-manipulation"]
+        assert len(pack) == 4
+        ids = {s.id for s in pack}
+        assert "CM-001" in ids  # context window stuffing
+        assert "CM-002" in ids  # multi-turn state confusion
+        assert "CM-003" in ids  # indirect injection via web fetch
+        assert "CM-004" in ids  # RAG context poisoning
+
+    def test_strict_policy_catches_context_manipulation(self) -> None:
+        """Context manipulation attacks should be caught by strict policy."""
+        pack = ATTACK_PACKS["context-manipulation"]
+        results = [simulate_attack(s, self.strict_policy) for s in pack]
+        pass_count = sum(1 for r in results if r["result"] == "PASS")
+        # Strict policy should catch at least half (execute/deploy are denied)
+        assert pass_count >= len(pack) // 2
+
+    def test_supply_chain_manifest_scenario(self) -> None:
+        """TP-003 (malicious manifest) should be caught by strict policy."""
+        tp003 = next(s for s in ATTACK_PACKS["tool-poisoning"] if s.id == "TP-003")
+        result = simulate_attack(tp003, self.strict_policy)
+        assert result["result"] == "PASS"  # execute is denied

@@ -14,7 +14,7 @@ MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-s
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
 | Detect secrets & misconfigs | ✅ | ✅ |
-| Adversarial policy simulation (17 attack scenarios) | ❌ | ✅ `aguard test` |
+| Adversarial policy simulation (22 attack scenarios) | ❌ | ✅ `aguard test` |
 | "What-if" risk impact before applying changes | ❌ | ✅ `aguard whatif` |
 | OWASP MCP Top 10 control coverage (20 controls) | ❌ | ✅ `aguard owasp` |
 | Launch readiness evidence packets | ❌ | ✅ `aguard evidence` |
@@ -81,7 +81,7 @@ See [docs/github-action-usage.md](docs/github-action-usage.md) for full options.
 | Command | What It Does | Maturity |
 |---|---|---|
 | `aguard scan` | Static analysis — secrets, misconfigs, unsafe AI code patterns | ✅ Stable |
-| `aguard test` | Adversarial policy simulation — 17 attack scenarios across 5 packs | ✅ Stable |
+| `aguard test` | Adversarial policy simulation — 22 attack scenarios across 6 packs | ✅ Stable |
 | `aguard owasp` | OWASP MCP Top 10 control coverage report (20 controls) | ✅ Stable |
 | `aguard whatif` | Policy impact simulation — risk delta before applying changes | ✅ Stable |
 | `aguard evidence` | Launch readiness packet with approval checklist | 🔶 Beta |
@@ -108,9 +108,9 @@ CI flags: `--max-risk 50` / `--fail-on high` / `--format sarif`
 
 ### `aguard test`
 
-Simulates 17 adversarial attacks against your declared policy. Reports what gets caught vs. what gets through. Pure policy simulation — no LLM needed.
+Simulates 22 adversarial attacks against your declared policy. Reports what gets caught vs. what gets through. Pure policy simulation — no LLM needed.
 
-**5 attack packs:** prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning.
+**6 attack packs:** prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning, context-manipulation.
 
 ```
 $ aguard test --policy agent-policy.yaml --attack-pack all
@@ -214,9 +214,10 @@ See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the complet
 - [x] **v0.1–v0.5** — Scanner, monitor, whatif, evidence, baseline, CI gates, SARIF, HTML reports
 - [x] **v0.8** — Adversarial policy simulation (17 scenarios, 5 attack packs)
 - [x] **v0.9** — OWASP control framework (20 controls, coverage reports)
-- [ ] **v1.0** — Multi-framework adapters (LangChain, CrewAI, AutoGen)
-- [ ] **v1.1** — Live agent testing (send attacks to running agents)
-- [ ] **v1.2** — Runtime proxy / tool-call firewall
+- [x] **v0.9.1** — Context manipulation pack (context stuffing, multi-turn confusion, indirect injection, RAG poisoning), supply-chain manifest poisoning scenario
+- [ ] **v1.0** — Runtime proxy / tool-call firewall (observability on live tool calls without full red-team harness)
+- [ ] **v1.1** — Multi-framework adapters (LangChain, CrewAI, AutoGen)
+- [ ] **v1.2** — Live agent testing (send adversarial inputs to running agents)
 
 ## Project Structure
 

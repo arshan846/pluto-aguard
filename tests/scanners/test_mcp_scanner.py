@@ -114,11 +114,14 @@ class TestMCPConfigScanner:
                 "safe-server": {
                     "command": "npx",
                     "args": ["-y", "mcp-server-safe"],
+                    "timeout": 300,
                 }
-            }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
         }
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
-        # Local stdio server with no remote endpoint — should be clean
+        # Local stdio server with no remote endpoint, with limits — should be clean
         assert len(findings) == 0
 
 
