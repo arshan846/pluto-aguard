@@ -1,6 +1,6 @@
 # 🛡️ Pluto AgentGuard
 
-**OWASP-aligned launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against adversarial attacks, simulates risk impact, maps results to OWASP MCP Top 10, and generates launch evidence.**
+**Security launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against attack scenarios, simulates risk impact, maps results to an OWASP-inspired control framework, and generates launch evidence.**
 
 [![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -9,14 +9,14 @@
 
 ## What Makes This Different
 
-MCP security scanners are multiplying fast (Cisco, AgentShield, ship-safe, mcp-scan). **Most focus on config detection.** AgentGuard adds policy simulation, OWASP control reporting, drift detection, and launch evidence:
+MCP security scanners are multiplying fast (Snyk agent-scan, AgentShield, ship-safe). **Most focus on config detection.** AgentGuard adds policy coverage testing, what-if simulation, drift detection, and launch evidence — all offline, no LLM or vendor lock-in:
 
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
-| Detect secrets & misconfigs | ✅ | ✅ |
-| Adversarial policy simulation (22 attack scenarios) | ❌ | ✅ `aguard test` |
+| Detect secrets & misconfigs statically (no server execution) | 🟡 Varies | ✅ `aguard scan` |
+| Policy coverage testing (22 attack scenarios) | ❌ | ✅ `aguard test` |
 | "What-if" risk impact before applying changes | ❌ | ✅ `aguard whatif` |
-| OWASP MCP Top 10 control coverage (20 controls) | ❌ | ✅ `aguard owasp` |
+| OWASP-inspired control coverage (20 controls) | ❌ | ✅ `aguard owasp` |
 | Launch readiness evidence packets | ❌ | ✅ `aguard evidence` |
 | Baseline drift detection | ❌ | ✅ `aguard baseline` |
 | Behavioral trace audit with approval model | ❌ | ✅ `aguard monitor` |
@@ -34,10 +34,10 @@ git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git && cd pluto-agu
 # Scan a realistic insecure AI project — finds 18 real issues
 aguard scan ./examples/demo-agent-project/
 
-# Test your policy against 17 adversarial attacks
+# Test your policy against 22 attack scenarios
 aguard test --policy ./examples/agent-policy.yaml --attack-pack all
 
-# Generate OWASP MCP Top 10 coverage report
+# Generate OWASP-inspired control coverage report
 aguard owasp ./examples/demo-agent-project/
 
 # Simulate policy changes — see risk drop before applying
@@ -58,7 +58,7 @@ No cloud accounts. No API keys. Runs entirely locally.
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.0
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.1
   with:
     path: '.'
     max-risk: '50'
@@ -81,8 +81,8 @@ See [docs/github-action-usage.md](docs/github-action-usage.md) for full options.
 | Command | What It Does | Maturity |
 |---|---|---|
 | `aguard scan` | Static analysis — secrets, misconfigs, unsafe AI code patterns | ✅ Stable |
-| `aguard test` | Adversarial policy simulation — 22 attack scenarios across 6 packs | ✅ Stable |
-| `aguard owasp` | OWASP MCP Top 10 control coverage report (20 controls) | ✅ Stable |
+| `aguard test` | Policy coverage testing — 22 attack scenarios across 6 packs | ✅ Stable |
+| `aguard owasp` | OWASP-inspired control coverage report (20 controls) | ✅ Stable |
 | `aguard whatif` | Policy impact simulation — risk delta before applying changes | ✅ Stable |
 | `aguard evidence` | Launch readiness packet with approval checklist | 🔶 Beta |
 | `aguard baseline` | Security snapshot + drift comparison over time | 🔶 Beta |
@@ -108,7 +108,9 @@ CI flags: `--max-risk 50` / `--fail-on high` / `--format sarif`
 
 ### `aguard test`
 
-Simulates 22 adversarial attacks against your declared policy. Reports what gets caught vs. what gets through. Pure policy simulation — no LLM needed.
+Tests 22 attack scenarios against your declared security policy. Reports what gets caught vs. what gets through. Pure policy coverage testing — no LLM needed.
+
+> ⚠️ **This tests whether your *policy document* would block each attack — not whether your actual LLM agent would resist it.** Real agent resistance requires runtime testing against a live agent (planned for v1.2).
 
 **6 attack packs:** prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning, context-manipulation.
 
@@ -119,7 +121,7 @@ $ aguard test --policy agent-policy.yaml --attack-pack all
   ✅ PASS  DE-001  File export of sensitive data      file_write    Blocked
   ❌ FAIL  DE-004  SQL data dump                      sql_query     NOT caught
 
-  📊 Results: 16 blocked · 1 missed · 17 total
+  📊 Results: 21 blocked · 1 missed · 22 total
 
   Recommended fixes:
     → Add sql_query to require_human_approval
@@ -129,7 +131,7 @@ CI flag: `--fail-on-miss` exits with code 1 if any attacks succeed.
 
 ### `aguard owasp`
 
-Evaluates 20 controls mapped to OWASP MCP Top 10 and LLM Top 10. Each control uses precise finding-ID matching.
+Evaluates 20 controls mapped to an OWASP-inspired control framework. Control IDs use a project-defined `MCP01–MCP10` taxonomy that draws on OWASP LLM Top 10 and the emerging OWASP Agentic AI initiative, with MCP-specific extensions the existing standards don't yet cover.
 
 ```
 $ aguard owasp ./my-project/
@@ -141,7 +143,7 @@ $ aguard owasp ./my-project/
     ✓ AGC-MCP07-001: Remote servers have auth
     ✓ AGC-MCP07-002: HTTPS transport
 
-  📊 OWASP MCP Mapped: 9/10 risks
+  📊 Control Coverage: 9/10 risks
      Controls: 8 passed · 6 failed · 6 not tested · 20 total
 ```
 
@@ -205,15 +207,15 @@ Accepts OpenTelemetry JSONL or simple `{"tool_name": "X", "tool_args": {}}` form
 
 See [docs/risk-scoring.md](docs/risk-scoring.md) for the full scoring methodology — formula, weights, examples, CI threshold guidance, and limitations.
 
-## OWASP Control Matrix
+## OWASP-Inspired Control Matrix
 
-See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the complete mapping of 20 controls to OWASP MCP Top 10 and LLM Top 10.
+See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the complete mapping of 20 controls. Control IDs draw on OWASP LLM Top 10 (LLM01–LLM10) and introduce MCP-specific extensions (MCP01–MCP10) for risks the existing standards don't yet cover.
 
 ## Roadmap
 
 - [x] **v0.1–v0.5** — Scanner, monitor, whatif, evidence, baseline, CI gates, SARIF, HTML reports
-- [x] **v0.8** — Adversarial policy simulation (17 scenarios, 5 attack packs)
-- [x] **v0.9** — OWASP control framework (20 controls, coverage reports)
+- [x] **v0.8** — Policy coverage testing (17 scenarios, 5 attack packs)
+- [x] **v0.9** — OWASP-inspired control framework (20 controls, coverage reports)
 - [x] **v0.9.1** — Context manipulation pack (context stuffing, multi-turn confusion, indirect injection, RAG poisoning), supply-chain manifest poisoning scenario
 - [ ] **v1.0** — Runtime proxy / tool-call firewall (observability on live tool calls without full red-team harness)
 - [ ] **v1.1** — Multi-framework adapters (LangChain, CrewAI, AutoGen)
@@ -227,7 +229,7 @@ pluto-aguard/
 │   ├── cli.py                  # 7 CLI commands
 │   ├── models.py               # Finding, RiskScore, ControlResult, etc.
 │   ├── scanners/               # MCP + AI config + permission scanners
-│   ├── testing/                # 17 adversarial attack scenarios
+│   ├── testing/                # 22 attack scenarios across 6 packs
 │   ├── controls/               # 20 OWASP-aligned control definitions
 │   ├── evidence/               # Launch readiness packet generator
 │   ├── baseline/               # Snapshot + drift comparison
@@ -236,7 +238,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, GitHub Action docs
-├── tests/                      # 84 tests
+├── tests/                      # 95 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```

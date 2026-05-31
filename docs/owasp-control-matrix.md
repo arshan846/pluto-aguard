@@ -1,8 +1,10 @@
-# OWASP Control Matrix
+# OWASP-Inspired Control Matrix
 
-Pluto AgentGuard maps every finding, test, and evidence artifact to OWASP MCP Top 10 and OWASP LLM Top 10 controls.
+Pluto AgentGuard maps every finding, test, and evidence artifact to an OWASP-inspired control framework. Control IDs draw on the published **OWASP Top 10 for LLM Applications** (LLM01–LLM10) and introduce **MCP-specific extensions** (MCP01–MCP10) for agentic risks the existing standards don't yet cover.
 
-## OWASP MCP Top 10 Coverage
+> **Note**: The `MCP01:2025–MCP10:2025` identifiers are project-defined, inspired by OWASP methodology. They are not an official OWASP publication. The `LLM01–LLM10` cross-references map to the published [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
+
+## MCP Control Coverage (Project-Defined)
 
 | OWASP Risk | AgentGuard Controls | Commands | Evidence |
 |---|---|---|---|
@@ -31,7 +33,7 @@ Pluto AgentGuard maps every finding, test, and evidence artifact to OWASP MCP To
 
 ## Control Coverage Summary
 
-- **OWASP MCP Top 10**: 9/10 risks mapped; varying depth of automated coverage (MCP09 planned)
-- **OWASP LLM Top 10**: 6/10 risks mapped
+- **MCP Controls (MCP01–MCP10)**: 9/10 risks mapped; project-defined taxonomy for agentic/MCP-specific risks (MCP09 planned)
+- **OWASP LLM Top 10 (LLM01–LLM10)**: 6/10 risks cross-referenced to the published OWASP standard
 - **Total controls implemented**: 20+
 - **Attack test scenarios**: 22 (across 6 packs)

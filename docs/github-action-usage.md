@@ -6,7 +6,7 @@ Add to any workflow:
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.0
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.1
   with:
     path: '.'
     max-risk: '50'
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run AgentGuard
-        uses: arpitha-dhanapathi/pluto-aguard@v0.9.0
+       uses: arpitha-dhanapathi/pluto-aguard@v0.9.1
         with:
           path: '.'
           max-risk: '50'
@@ -42,11 +42,11 @@ jobs:
           sarif_file: aguard-results.sarif
 ```
 
-## With Adversarial Policy Testing
+## With Policy Coverage Testing
 
 ```yaml
-- name: Run AgentGuard with adversarial tests
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.0
+- name: Run AgentGuard with policy tests
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.1
   with:
     path: '.'
     max-risk: '50'
@@ -63,6 +63,6 @@ jobs:
 | `max-risk` | Maximum risk score (0-100) | — |
 | `fail-on` | Minimum severity to fail (`critical`, `high`, `medium`, `low`) | — |
 | `format` | Output format (`text`, `json`, `html`, `sarif`) | `text` |
-| `policy` | Path to policy file for adversarial testing | — |
+| `policy` | Path to policy file for policy coverage testing | — |
 | `attack-pack` | Attack pack to run | — |
 | `sarif-output` | Path for SARIF file | — |

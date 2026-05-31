@@ -247,7 +247,6 @@ def _check_server_auth(
     findings: list[Finding] = []
 
     auth = config.get("auth", config.get("authentication", config.get("credentials", None)))
-    config.get("transport", config.get("type", ""))
 
     # Remote servers without auth are a problem
     url = config.get("url", config.get("endpoint", ""))

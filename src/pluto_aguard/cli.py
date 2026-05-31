@@ -37,7 +37,7 @@ def scan(
     """🔍 Scan agent project for security vulnerabilities.
 
     Analyzes MCP server configs, environment files, and agent definitions
-    for security issues mapped to the OWASP MCP Top 10.
+    for security issues mapped to an OWASP-inspired control framework.
     """
     from pluto_aguard.scanners.runner import run_scan
 
@@ -116,11 +116,14 @@ def evidence(path: str, config: str | None, policy: str | None, output: str) -> 
 )
 @click.option("--fail-on-miss", is_flag=True, help="Exit with code 1 if any attacks are not caught by policy")
 def test(policy: str, attack_pack: str, fail_on_miss: bool) -> None:
-    """🎯 Run adversarial policy simulation.
+    """🎯 Test policy coverage against attack scenarios.
 
-    Simulates attack scenarios and checks whether the agent's declared
-    policy would catch each attack. Pure policy simulation — no LLM
-    or running agent needed.
+    Tests 22 attack scenarios against the agent's declared security
+    policy to check what gets blocked vs. what gets through.
+    Pure policy testing — no LLM or running agent needed.
+
+    Note: This tests whether your *policy* would block each attack,
+    not whether your actual LLM agent would resist it.
     """
     from pluto_aguard.testing.runner import run_test
 
@@ -164,10 +167,11 @@ def baseline_compare(path: str, baseline_file: str, fail_on_drift: bool) -> None
 @click.option("--format", "output_format", type=click.Choice(["text", "markdown"]), default="text")
 @click.option("--output", "-o", type=click.Path(), help="Output file path for markdown report")
 def owasp(path: str, output_format: str, output: str | None) -> None:
-    """🛡️ Generate OWASP MCP Top 10 coverage report.
+    """🛡️ Generate OWASP-inspired control coverage report.
 
-    Evaluates which OWASP controls pass or fail based on scanning
-    the project, and generates a coverage report.
+    Evaluates which controls pass or fail based on scanning
+    the project, and generates a coverage report. Uses a project-defined
+    MCP control taxonomy that draws on OWASP LLM Top 10.
     """
     from pluto_aguard.controls.runner import run_owasp_report
 
