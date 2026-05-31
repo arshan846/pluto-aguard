@@ -9,7 +9,7 @@
 
 ## What Makes This Different
 
-MCP security scanners are multiplying fast (Snyk agent-scan, AgentShield, ship-safe). **Most focus on config detection.** AgentGuard adds policy coverage testing, what-if simulation, drift detection, and launch evidence — all offline, no LLM or vendor lock-in:
+MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrails, AgentSeal). **Most focus on config detection or runtime analysis.** AgentGuard adds policy coverage testing, what-if simulation, drift detection, and launch evidence — all offline, no LLM or vendor lock-in:
 
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
@@ -58,7 +58,7 @@ No cloud accounts. No API keys. Runs entirely locally.
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.1
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.2
   with:
     path: '.'
     max-risk: '50'

@@ -2,6 +2,19 @@
 
 All notable changes to Pluto AgentGuard will be documented in this file.
 
+## [0.9.2] — 2026-05-31
+
+### Fixed
+- **action.yml**: Version pin updated from 0.9.0 → 0.9.2 (was installing wrong version)
+- **action.yml**: Description and input labels updated to use "OWASP-inspired" and "policy coverage testing" language
+- **action.yml**: Added `context-manipulation` to attack pack list
+- **README.md**: Replaced non-existent competitor names (AgentShield, ship-safe) with verified projects (Invariant guardrails, AgentSeal)
+- **CHANGELOG.md**: Corrected test count (87 → 95), updated terminology
+- **pyproject.toml**: Updated description for PyPI page accuracy
+
+### Added
+- **GitHub topics**: mcp, ai-security, mcp-security, agent-security, owasp, llm-security, mcp-server, claude, cursor
+
 ## [0.9.1] — 2026-05-30
 
 ### Added
@@ -30,7 +43,7 @@ All notable changes to Pluto AgentGuard will be documented in this file.
 - Roadmap reprioritized based on community feedback:
   - v1.0 → Runtime MCP proxy (was adapters)
   - v1.1 → Framework adapters (was proxy)
-  - v1.2 → Live adversarial testing
+  - v1.2 → Live policy testing with runtime probes
 - OWASP control matrix updated for MCP03, MCP04, MCP06 coverage
 - README updated: 22 scenarios, 6 attack packs
 
@@ -39,7 +52,7 @@ All notable changes to Pluto AgentGuard will be documented in this file.
 - Before v0.9.1: 2 findings
 - After v0.9.1: 79 findings (1 critical, 15 high, 63 medium)
 - 27% of configs have HIGH+ findings; 100% have at least one finding
-- 87 tests passing
+- 95 tests passing
 
 ## [0.9.0] — 2026-05-21
 
@@ -47,7 +60,7 @@ All notable changes to Pluto AgentGuard will be documented in this file.
 - `aguard scan` — Static security scanner for MCP configs, secrets, Dockerfiles, dependencies
 - `aguard monitor` — Behavioral trace replay with policy violation detection
 - `aguard whatif` — Policy change impact simulator with risk score delta
-- `aguard test` — Adversarial policy testing with 17 attack scenarios across 5 packs
+- `aguard test` — Policy coverage testing with 17 attack scenarios across 5 packs
 - `aguard owasp` — OWASP MCP Top 10 + LLM Top 10 control coverage reports
 - `aguard evidence` — Launch readiness packet generation with approval checklists
 - `aguard baseline` — Security baseline snapshots and drift detection

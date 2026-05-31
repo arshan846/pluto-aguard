@@ -1,5 +1,5 @@
 name: 'Pluto AgentGuard'
-description: 'OWASP-aligned security scanner and launch gate for AI agents. Scan, test, and generate OWASP coverage reports.'
+description: 'OWASP-inspired security scanner and launch gate for AI agents. Scan, test, and generate control coverage reports.'
 author: 'Arpitha Dhanapathi'
 branding:
   icon: 'shield'
@@ -23,11 +23,11 @@ inputs:
     required: false
     default: 'text'
   policy:
-    description: 'Path to agent policy file for adversarial testing'
+    description: 'Path to agent policy file for policy coverage testing'
     required: false
     default: ''
   attack-pack:
-    description: 'Attack pack for adversarial testing (all, prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning)'
+    description: 'Attack pack for policy coverage testing (all, prompt-injection, data-exfiltration, permission-escalation, approval-bypass, tool-poisoning, context-manipulation)'
     required: false
     default: ''
   sarif-output:
@@ -45,7 +45,7 @@ runs:
 
     - name: Install Pluto AgentGuard
       shell: bash
-      run: pip install pluto-aguard==0.9.0
+      run: pip install pluto-aguard==0.9.2
 
     - name: Run security scan
       shell: bash
@@ -68,7 +68,7 @@ runs:
 
         aguard scan $SCAN_ARGS
 
-    - name: Run adversarial policy test
+    - name: Run policy coverage test
       if: inputs.policy != ''
       shell: bash
       run: |
