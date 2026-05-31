@@ -364,25 +364,145 @@ _PLACEHOLDER_VALUE = re.compile(
 )
 
 # Known dangerous MCP server packages that grant filesystem/shell/db access
-_DANGEROUS_SERVER_PACKAGES = {
-    "@modelcontextprotocol/server-filesystem": (
-        "filesystem",
-        "Grants read/write access to the local filesystem. An agent can read, "
-        "create, and modify any file within the allowed directories.",
+# Organized by risk tier: CRITICAL (shell/browser with auth), HIGH (write access),
+# MEDIUM (read-only external content injection)
+_DANGEROUS_SERVER_PACKAGES: dict[str, tuple[str, str, Severity]] = {
+    # ── CRITICAL: Browser control with authenticated sessions ──
+    "mcp-chrome-bridge": (
+        "browser-control",
+        "Uses YOUR live authenticated Chrome browser. Can inject JS in any tab, "
+        "capture network traffic including auth tokens, read browser history and "
+        "cookies. Prompt injection from any web page can exfiltrate credentials "
+        "from banking, email, and corporate SSO tabs.",
+        Severity.CRITICAL,
     ),
-    "@modelcontextprotocol/server-postgres": (
-        "database",
-        "Grants direct SQL access to a PostgreSQL database. An agent can "
-        "read, modify, or delete data without application-level access controls.",
+    "chrome-devtools-mcp": (
+        "browser-control",
+        "Full Chrome DevTools Protocol access. Can attach to existing Chrome "
+        "sessions, capture complete network response bodies (credentials, PII), "
+        "execute JavaScript in browser context, and take screenshots.",
+        Severity.CRITICAL,
     ),
-    "@modelcontextprotocol/server-sqlite": (
-        "database",
-        "Grants direct SQL access to a SQLite database.",
+    # ── CRITICAL: Arbitrary code/shell execution ──
+    "serena-agent": (
+        "shell-execution",
+        "Grants unrestricted shell command execution via execute_shell_command, "
+        "full filesystem read/write, and semantic code editing. Equivalent to "
+        "giving the LLM an SSH session.",
+        Severity.CRITICAL,
+    ),
+    # ── HIGH: Browser automation (isolated but still dangerous) ──
+    "@playwright/mcp": (
+        "browser-automation",
+        "Full browser automation — navigate to any URL, fill forms, download "
+        "files, take screenshots. Can complete multi-step destructive actions "
+        "(wire money, delete cloud resources) if given access to authenticated "
+        "sessions.",
+        Severity.HIGH,
     ),
     "@executeautomation/playwright-mcp-server": (
         "browser-automation",
         "Grants full browser automation capabilities. An agent can navigate "
         "to arbitrary URLs, fill forms, and exfiltrate page content.",
+        Severity.HIGH,
+    ),
+    # ── HIGH: Source control write access ──
+    "github-mcp-server": (
+        "source-control",
+        "GitHub write access — can create/merge PRs, push code, trigger CI/CD "
+        "workflows, and access job logs that may leak secrets. A prompt injection "
+        "can merge backdoor code or trigger pipelines that exfiltrate repo secrets.",
+        Severity.HIGH,
+    ),
+    # ── HIGH: Workflow/automation engines (arbitrary code via workflows) ──
+    "n8n-mcp": (
+        "workflow-execution",
+        "Creates and executes n8n workflows including Code nodes with arbitrary "
+        "JS. Can read/write/delete ALL stored credentials (API keys, OAuth tokens, "
+        "database passwords). Can create persistent backdoor automations that run "
+        "after the conversation ends.",
+        Severity.HIGH,
+    ),
+    # ── HIGH: Database access ──
+    "@modelcontextprotocol/server-filesystem": (
+        "filesystem",
+        "Grants read/write access to the local filesystem. An agent can read, "
+        "create, and modify any file within the allowed directories.",
+        Severity.HIGH,
+    ),
+    "@modelcontextprotocol/server-postgres": (
+        "database",
+        "Grants direct SQL access to a PostgreSQL database. An agent can "
+        "read, modify, or delete data without application-level access controls.",
+        Severity.HIGH,
+    ),
+    "@modelcontextprotocol/server-sqlite": (
+        "database",
+        "Grants direct SQL access to a SQLite database.",
+        Severity.HIGH,
+    ),
+    "@toolbox-sdk/server": (
+        "database",
+        "Google MCP Toolbox — supports 20+ databases (Postgres, BigQuery, MySQL, "
+        "MongoDB, Redis, etc.). Prebuilt mode enables unrestricted SQL execution "
+        "including DROP TABLE and DELETE. BigQuery mode can run queries costing "
+        "thousands in compute.",
+        Severity.HIGH,
+    ),
+    # ── MEDIUM: Social media write access ──
+    "xpzouying/xiaohongshu-mcp": (
+        "social-media",
+        "Can publish posts, comments, and replies on Xiaohongshu at scale. "
+        "Enables automated spam, disinformation, or social engineering campaigns. "
+        "Accesses local filesystem for image/video uploads.",
+        Severity.MEDIUM,
+    ),
+}
+
+# Patterns to match popular servers by name/args when exact package isn't used
+_POPULAR_SERVER_PATTERNS: list[tuple[re.Pattern[str], str, str, Severity]] = [
+    # Browser control
+    (re.compile(r"@playwright/mcp", re.IGNORECASE),
+     "browser-automation", "Playwright MCP — full browser automation with URL navigation, "
+     "form filling, and content exfiltration capabilities.", Severity.HIGH),
+    (re.compile(r"chrome-devtools-mcp", re.IGNORECASE),
+     "browser-control", "Chrome DevTools MCP — attaches to live Chrome sessions with full "
+     "DevTools Protocol access including JS execution and network capture.", Severity.CRITICAL),
+    (re.compile(r"mcp-chrome-bridge", re.IGNORECASE),
+     "browser-control", "Chrome MCP Bridge — controls your authenticated Chrome browser "
+     "with JS injection, cookie access, and network debugging.", Severity.CRITICAL),
+    # GitHub
+    (re.compile(r"github-mcp-server|ghcr\.io/github/github-mcp-server", re.IGNORECASE),
+     "source-control", "GitHub MCP — can merge PRs, push code, trigger CI/CD, "
+     "and access job logs that may leak secrets.", Severity.HIGH),
+    # n8n workflow
+    (re.compile(r"n8n-mcp", re.IGNORECASE),
+     "workflow-execution", "n8n MCP — creates workflows with arbitrary code execution, "
+     "manages all stored credentials, and can deploy persistent automations.", Severity.HIGH),
+    # Google DB toolbox
+    (re.compile(r"@toolbox-sdk/server", re.IGNORECASE),
+     "database", "Google MCP Toolbox — unrestricted SQL against 20+ database types "
+     "in prebuilt mode.", Severity.HIGH),
+    # Serena coding agent
+    (re.compile(r"serena-agent|serena", re.IGNORECASE),
+     "shell-execution", "Serena — unrestricted shell execution and filesystem access.", Severity.CRITICAL),
+    # Social media
+    (re.compile(r"xiaohongshu-mcp|x-mcp.*xiaohongshu", re.IGNORECASE),
+     "social-media", "Xiaohongshu MCP — can publish posts, comments, and replies "
+     "on the platform at scale.", Severity.MEDIUM),
+]
+
+# Context injection servers — primarily inject external content into LLM context
+_CONTEXT_INJECTION_PACKAGES: dict[str, str] = {
+    "@upstash/context7-mcp": (
+        "Context7 — fetches external documentation from community-contributed "
+        "sources and injects it directly into LLM context. A compromised library "
+        "entry could inject prompt injection payloads."
+    ),
+    "figma-developer-mcp": (
+        "Figma MCP — fetches Figma file content (node names, descriptions, text "
+        "layers) into LLM context. A malicious designer could embed prompt "
+        "injection instructions in node names or descriptions."
     ),
 }
 
@@ -441,42 +561,95 @@ def _check_dangerous_server_packages(
 
     args = config.get("args", [])
     if not isinstance(args, list):
-        return findings
+        args = []
 
     args_str = " ".join(str(a) for a in args)
+    command = str(config.get("command", ""))
+    url = str(config.get("url", ""))
+    combined = f"{command} {args_str} {server_name} {url}"
 
-    for package, (category, risk_desc) in _DANGEROUS_SERVER_PACKAGES.items():
-        if package in args_str:
+    matched_packages: set[str] = set()
+
+    # Check exact package matches in args
+    for package, (category, risk_desc, severity) in _DANGEROUS_SERVER_PACKAGES.items():
+        if package in args_str or package in url:
+            matched_packages.add(category)
             findings.append(Finding(
                 id=f"DANGEROUS-PKG-{server_name}-{category}",
-                title=f"Dangerous MCP server package '{package}' on '{server_name}' without HITL",
+                title=f"Dangerous MCP server '{package}' on '{server_name}' without HITL",
                 description=(
                     f"MCP server '{server_name}' uses '{package}' which grants {category} "
                     f"access. {risk_desc} Without human-in-the-loop approval, a prompt "
-                    "injection attack could leverage this access for data exfiltration "
-                    "or system compromise."
+                    "injection attack could leverage this access."
                 ),
-                severity=Severity.HIGH,
+                severity=severity,
                 category="permissions",
                 owasp_id="MCP05:2025",
                 file_path=str(file_path),
                 evidence=f"Package: {package}",
                 remediation=(
                     f"Add human-in-the-loop approval for '{server_name}' operations, "
-                    "restrict the allowed directories/tables to the minimum required, "
+                    "restrict capabilities to the minimum required, "
                     "and consider using read-only access where possible."
                 ),
             ))
 
+    # Check pattern matches for popular servers (only if not already caught)
+    for pattern, category, risk_desc, severity in _POPULAR_SERVER_PATTERNS:
+        if category in matched_packages:
+            continue
+        if pattern.search(combined):
+            matched_packages.add(category)
+            findings.append(Finding(
+                id=f"DANGEROUS-POPULAR-{server_name}-{category}",
+                title=f"Popular high-risk MCP server detected: '{server_name}' ({category})",
+                description=(
+                    f"MCP server '{server_name}' matches a known high-risk server pattern. "
+                    f"{risk_desc} Without human-in-the-loop approval, this is exploitable "
+                    "through prompt injection."
+                ),
+                severity=severity,
+                category="permissions",
+                owasp_id="MCP05:2025",
+                file_path=str(file_path),
+                remediation=(
+                    f"Add human-in-the-loop approval for '{server_name}' and "
+                    "restrict to the minimum required capabilities."
+                ),
+            ))
+
+    # Check context injection packages
+    for package, risk_desc in _CONTEXT_INJECTION_PACKAGES.items():
+        if package in args_str or package in url:
+            findings.append(Finding(
+                id=f"CONTEXT-INJECT-{server_name}",
+                title=f"External content injection server '{package}' on '{server_name}'",
+                description=(
+                    f"MCP server '{server_name}' uses '{package}' which injects external "
+                    f"content directly into the LLM context window. {risk_desc} "
+                    "This is a vector for indirect prompt injection attacks."
+                ),
+                severity=Severity.MEDIUM,
+                category="context_safety",
+                owasp_id="MCP03:2025",
+                file_path=str(file_path),
+                evidence=f"Package: {package}",
+                remediation=(
+                    "Validate and sanitize external content before injection into LLM context. "
+                    "Set response size limits to prevent context window stuffing. "
+                    "Consider content filtering for prompt injection patterns."
+                ),
+            ))
+
     # Also detect custom servers with dangerous names
-    command = str(config.get("command", ""))
     dangerous_name_patterns = [
         (r"powershell[_-]commander", "shell", "Grants PowerShell command execution"),
         (r"file[_-]commander", "filesystem", "Grants file management capabilities"),
         (r"shell[_-](?:server|mcp)", "shell", "Grants shell command execution"),
     ]
-    combined = f"{command} {args_str} {server_name}"
     for pattern, cat, desc in dangerous_name_patterns:
+        if cat in matched_packages:
+            continue
         if re.search(pattern, combined, re.IGNORECASE):
             findings.append(Finding(
                 id=f"DANGEROUS-CUSTOM-{server_name}-{cat}",

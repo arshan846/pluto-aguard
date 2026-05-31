@@ -125,6 +125,139 @@ class TestMCPConfigScanner:
         assert len(findings) == 0
 
 
+class TestPopularServerDetection:
+    """Tests for popular MCP server detection."""
+
+    def test_detects_playwright_mcp(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "playwright": {
+                    "command": "npx",
+                    "args": ["-y", "@playwright/mcp"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        pkg_findings = [f for f in findings if "playwright" in f.title.lower() and "browser" in f.description.lower()]
+        assert len(pkg_findings) >= 1
+        assert pkg_findings[0].severity == Severity.HIGH
+
+    def test_detects_chrome_devtools(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "chrome": {
+                    "command": "npx",
+                    "args": ["-y", "chrome-devtools-mcp"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        browser_findings = [f for f in findings if "chrome" in f.title.lower() or "browser" in f.description.lower()]
+        assert len(browser_findings) >= 1
+        assert any(f.severity == Severity.CRITICAL for f in browser_findings)
+
+    def test_detects_github_mcp_server(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "github": {
+                    "command": "docker",
+                    "args": ["run", "-i", "ghcr.io/github/github-mcp-server"],
+                    "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_test12345678901234567890123456789012"},
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        gh_findings = [f for f in findings if "github" in f.title.lower() or "source-control" in f.description.lower()]
+        assert len(gh_findings) >= 1
+
+    def test_detects_n8n_mcp(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "n8n": {
+                    "command": "npx",
+                    "args": ["-y", "n8n-mcp"],
+                    "env": {"N8N_API_KEY": "n8n_test_key_12345"},
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        n8n_findings = [f for f in findings if "n8n" in f.title.lower() or "workflow" in f.description.lower()]
+        assert len(n8n_findings) >= 1
+        assert any(f.severity == Severity.HIGH for f in n8n_findings)
+
+    def test_detects_serena_shell(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "serena": {
+                    "command": "serena-agent",
+                    "args": ["--project", "/home/user/code"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        serena_findings = [f for f in findings if "serena" in f.title.lower() or "shell" in f.description.lower()]
+        assert len(serena_findings) >= 1
+        assert any(f.severity == Severity.CRITICAL for f in serena_findings)
+
+    def test_detects_toolbox_database(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "db-toolbox": {
+                    "command": "npx",
+                    "args": ["-y", "@toolbox-sdk/server"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        db_findings = [f for f in findings if "toolbox" in f.title.lower() or "database" in f.description.lower()]
+        assert len(db_findings) >= 1
+        assert any(f.severity == Severity.HIGH for f in db_findings)
+
+    def test_detects_context7_injection(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "context7": {
+                    "command": "npx",
+                    "args": ["-y", "@upstash/context7-mcp"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        ctx_findings = [f for f in findings if "context" in f.title.lower() or "injection" in f.title.lower()]
+        assert len(ctx_findings) >= 1
+        assert any(f.category == "context_safety" for f in ctx_findings)
+
+    def test_detects_mcp_chrome_bridge(self, tmp_path: Path) -> None:
+        config = {
+            "mcpServers": {
+                "chrome-bridge": {
+                    "command": "npx",
+                    "args": ["-y", "mcp-chrome-bridge"],
+                }
+            },
+            "max_tokens": 4000,
+            "max_turns": 20,
+        }
+        findings = scan_mcp_config(tmp_path / "mcp.json", config)
+        chrome_findings = [f for f in findings if "chrome" in f.title.lower() or "browser" in f.description.lower()]
+        assert len(chrome_findings) >= 1
+        assert any(f.severity == Severity.CRITICAL for f in chrome_findings)
+
+
 class TestDirectoryScanner:
     """Tests for full directory scanning."""
 
