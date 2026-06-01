@@ -33,28 +33,33 @@ def run_scan(
     output_path: str | None = None,
     max_risk: float | None = None,
     fail_on: str | None = None,
+    quiet: bool = False,
 ) -> ScanResult:
     """Run a full security scan on the given path."""
     start_time = time.monotonic()
     project_path = Path(path).resolve()
 
-    console.print(f"\n🔍 [bold]Scanning[/bold] {project_path}...\n")
+    if not quiet:
+        console.print(f"\n🔍 [bold]Scanning[/bold] {project_path}...\n")
 
     all_findings: list[Finding] = []
     scanned_files = 0
 
     # Run MCP config + secrets scanner
-    console.print("  [dim]Scanning MCP configurations and secrets...[/dim]")
+    if not quiet:
+        console.print("  [dim]Scanning MCP configurations and secrets...[/dim]")
     mcp_findings = scan_directory(project_path)
     all_findings.extend(mcp_findings)
 
     # Run AI framework config scanner
-    console.print("  [dim]Scanning AI framework configurations...[/dim]")
+    if not quiet:
+        console.print("  [dim]Scanning AI framework configurations...[/dim]")
     ai_findings = scan_ai_configs(project_path)
     all_findings.extend(ai_findings)
 
     # Run permission scanner on agent configs
-    console.print("  [dim]Scanning agent permission configurations...[/dim]")
+    if not quiet:
+        console.print("  [dim]Scanning agent permission configurations...[/dim]")
     perm_risk_scores: list[float] = []
 
     for config_name in AGENT_CONFIG_FILES:
@@ -87,7 +92,9 @@ def run_scan(
     )
 
     # Output results
-    if output_format == "text":
+    if quiet:
+        _print_quiet_report(result)
+    elif output_format == "text":
         _print_text_report(result)
     elif output_format == "json":
         _print_json_report(result, output_path)
@@ -120,13 +127,16 @@ def _calculate_risk_score(
     # Combine with permission risk scores
     avg_perm_score = sum(perm_scores) / len(perm_scores) if perm_scores else 0
 
-    overall = min(100.0, (finding_score * 0.7) + (avg_perm_score * 0.3))
+    # Cap component scores to ensure overall stays within 0-100
+    capped_finding = min(100.0, finding_score)
+    capped_perm = min(100.0, avg_perm_score)
+    overall = min(100.0, (capped_finding * 0.7) + (capped_perm * 0.3))
 
     return RiskScore(
         overall=round(overall, 1),
         breakdown={
-            "findings": round(finding_score * 0.7, 1),
-            "permissions": round(avg_perm_score * 0.3, 1),
+            "findings": round(capped_finding * 0.7, 1),
+            "permissions": round(capped_perm * 0.3, 1),
         },
         finding_count=severity_counts,
     )
@@ -163,6 +173,25 @@ def _risk_color(score: float) -> str:
     if score >= 25:
         return "blue"
     return "green"
+
+
+def _print_quiet_report(result: ScanResult) -> None:
+    """Print minimal one-line summary for CI pipelines."""
+    counts = result.risk_score.finding_count
+    c = counts.get(Severity.CRITICAL, 0)
+    h = counts.get(Severity.HIGH, 0)
+    m = counts.get(Severity.MEDIUM, 0)
+    total = len(result.findings)
+    score = result.risk_score.overall
+
+    if total == 0:
+        print("aguard: PASS - no findings")
+    else:
+        print(
+            f"aguard: {total} findings "
+            f"({c} critical, {h} high, {m} medium) "
+            f"risk={score}/100"
+        )
 
 
 def _print_text_report(result: ScanResult) -> None:

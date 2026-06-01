@@ -27,12 +27,14 @@ def main() -> None:
     type=click.Choice(["critical", "high", "medium", "low"]),
     help="Exit with code 1 if findings at or above this severity exist",
 )
+@click.option("--quiet", "-q", is_flag=True, help="Minimal output for CI pipelines (summary line only)")
 def scan(
     path: str,
     output_format: str,
     output: str | None,
     max_risk: float | None,
     fail_on: str | None,
+    quiet: bool,
 ) -> None:
     """🔍 Scan agent project for security vulnerabilities.
 
@@ -47,6 +49,7 @@ def scan(
         output_path=output,
         max_risk=max_risk,
         fail_on=fail_on,
+        quiet=quiet,
     )
 
 
