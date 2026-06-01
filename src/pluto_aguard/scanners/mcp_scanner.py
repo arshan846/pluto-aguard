@@ -58,7 +58,10 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
     (
         "Generic Secret",
-        re.compile(r"(?:secret|password|passwd|token)\s*[=:]\s*['\"]?[A-Za-z0-9/+=\-_]{16,}", re.IGNORECASE),
+        re.compile(
+            r"(?<![A-Za-z])(?:secret|password|passwd|token)(?![A-Za-z])\s*[=:]\s*['\"]?[A-Za-z0-9/+=\-_]{16,}",
+            re.IGNORECASE,
+        ),
     ),
     ("Azure Key", re.compile(r"(?:AccountKey|SharedAccessKey)\s*=\s*[A-Za-z0-9+/=]{40,}")),
     ("Connection String", re.compile(r"(?:mongodb|postgres|postgresql|mysql|redis)://[^\s\"']*:[^\s\"']*@")),
@@ -88,7 +91,19 @@ def scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
                 # Skip if the matched secret itself looks like a placeholder
                 if any(placeholder in matched_text.lower() for placeholder in [
                     "example", "placeholder", "your_", "xxx", "changeme", "todo",
-                    "<your", "${", "{{",
+                    "<your", "${", "{{", "%{",
+                ]):
+                    continue
+
+                # Skip if the surrounding line contains template variable references
+                if any(tmpl in line for tmpl in ["${", "{{", "%{", "process.env.", "os.environ"]):
+                    continue
+
+                # Skip non-secret token names (pagination, CSRF, continuation)
+                if any(prefix in line.lower() for prefix in [
+                    "continuationtoken", "nexttoken", "pagetoken", "csrftoken",
+                    "refreshtoken", "synctoken", "cursortoken", "nextpagetoken",
+                    "skiptoken",
                 ]):
                     continue
 
