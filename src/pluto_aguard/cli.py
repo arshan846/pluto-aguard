@@ -28,6 +28,12 @@ def main() -> None:
     help="Exit with code 1 if findings at or above this severity exist",
 )
 @click.option("--quiet", "-q", is_flag=True, help="Minimal output for CI pipelines (summary line only)")
+@click.option(
+    "--client",
+    type=click.Choice(["claude-desktop", "cursor", "vscode-copilot", "custom"]),
+    default=None,
+    help="MCP client in use — adjusts severity for clients with built-in HITL approval",
+)
 def scan(
     path: str,
     output_format: str,
@@ -35,6 +41,7 @@ def scan(
     max_risk: float | None,
     fail_on: str | None,
     quiet: bool,
+    client: str | None,
 ) -> None:
     """🔍 Scan agent project for security vulnerabilities.
 
@@ -50,6 +57,7 @@ def scan(
         max_risk=max_risk,
         fail_on=fail_on,
         quiet=quiet,
+        client=client,
     )
 
 

@@ -34,13 +34,23 @@ def run_scan(
     max_risk: float | None = None,
     fail_on: str | None = None,
     quiet: bool = False,
+    client: str | None = None,
 ) -> ScanResult:
     """Run a full security scan on the given path."""
     start_time = time.monotonic()
     project_path = Path(path).resolve()
 
+    # Load client profile for severity adjustment
+    from pluto_aguard.client_profiles import get_client_profile, should_downgrade
+    client_profile = get_client_profile(client)
+
     if not quiet:
         console.print(f"\n🔍 [bold]Scanning[/bold] {project_path}...\n")
+        if client_profile and client_profile.has_hitl:
+            console.print(
+                f"  [dim]Client: {client_profile.display_name} "
+                f"(has built-in HITL — dangerous-server severity adjusted)[/dim]"
+            )
 
     all_findings: list[Finding] = []
     scanned_files = 0
@@ -77,6 +87,18 @@ def run_scan(
     scan_patterns = ["*.json", "*.yaml", "*.yml", "*.env", "*.py", "*.js", "*.ts", "*.toml"]
     for pattern in scan_patterns:
         scanned_files += len(list(project_path.rglob(pattern)))
+
+    # Apply client-aware severity adjustments
+    if client_profile:
+        for finding in all_findings:
+            if should_downgrade(finding.id, client_profile):
+                finding.severity = Severity.MEDIUM
+                finding.metadata["original_severity"] = "critical_or_high"
+                finding.metadata["downgraded_by_client"] = client_profile.name
+                finding.remediation = (
+                    f"[Severity adjusted: {client_profile.display_name} has built-in HITL] "
+                    + (finding.remediation or "")
+                )
 
     # Calculate overall risk score
     risk_score = _calculate_risk_score(all_findings, perm_risk_scores)
