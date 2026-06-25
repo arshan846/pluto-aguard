@@ -54,6 +54,28 @@ aguard baseline compare ./examples/
 
 No cloud accounts. No API keys. Runs entirely locally.
 
+## Real-World Validation: 1,200 GitHub Configs
+
+We scanned **1,200 real MCP configs** from public GitHub repos (1,159 unique projects) using AgentGuard:
+
+| Metric | Result |
+|---|---|
+| Configs scanned | 1,200 |
+| Total findings | 2,904 |
+| 🔴 CRITICAL | 88 |
+| 🟠 HIGH | 280 |
+| 🟡 MEDIUM | 2,536 |
+| % with CRITICAL or HIGH | **20.7%** |
+| % with any finding | **100%** |
+
+**Top risks found in the wild:**
+- 63 configs had filesystem servers without HITL approval
+- 31 configs had Playwright (browser automation) with no gate
+- 121 configs had hardcoded secrets in env vars
+- 0 of 1,200 had response size limits or session caps
+
+The 11 most popular MCP servers (307K+ combined GitHub stars) — including Chrome DevTools, Playwright, GitHub MCP, Serena, and Context7 — all had CRITICAL or HIGH findings. See [full methodology and results](docs/scan-results-methodology.md).
+
 ## GitHub Action
 
 ```yaml

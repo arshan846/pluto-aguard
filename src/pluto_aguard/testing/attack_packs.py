@@ -22,6 +22,7 @@ class AttackScenario:
     expected_tool_args: dict = field(default_factory=dict)
     category: str = ""
     severity: str = "high"  # What severity if policy fails to catch
+    atr_rule_ids: list[str] = field(default_factory=list)  # ATR rule mappings
 
 
 # ─── Prompt Injection Pack ───

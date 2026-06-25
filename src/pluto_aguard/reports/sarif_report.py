@@ -68,7 +68,7 @@ def generate_sarif(result: ScanResult) -> str:
                 "tool": {
                     "driver": {
                         "name": "pluto-aguard",
-                        "version": "0.1.0",
+                        "version": "0.9.2",
                         "informationUri": "https://github.com/arpitha-dhanapathi/pluto-aguard",
                         "rules": rules,
                     }
