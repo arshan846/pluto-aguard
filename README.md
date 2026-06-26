@@ -61,20 +61,20 @@ We scanned **1,200 real MCP configs** from public GitHub repos (1,159 unique pro
 | Metric | Result |
 |---|---|
 | Configs scanned | 1,200 |
-| Total findings | 2,904 |
-| 🔴 CRITICAL | 88 |
-| 🟠 HIGH | 280 |
-| 🟡 MEDIUM | 2,536 |
-| % with CRITICAL or HIGH | **20.7%** |
-| % with any finding | **100%** |
+| Total findings | 2,891 |
+| 🔴 CRITICAL | 0 |
+| 🟠 HIGH | 189 |
+| 🟡 MEDIUM | 169 |
+| ℹ️ INFO | 2,533 |
+| Repos with HIGH findings | **156 (13%)** |
 
-**Top risks found in the wild:**
-- 63 configs had filesystem servers without HITL approval
-- 31 configs had Playwright (browser automation) with no gate
-- 121 configs had hardcoded secrets in env vars
-- 0 of 1,200 had response size limits or session caps
+**What we actually found:**
+- 189 remote MCP endpoints with no authentication configured
+- 169 unencrypted HTTP on non-localhost transport
+- Hardcoded secrets in a subset of configs
+- 2,533 informational items (capability inventory — shell access, browser automation, etc.)
 
-The 11 most popular MCP servers (307K+ combined GitHub stars) — including Chrome DevTools, Playwright, GitHub MCP, Serena, and Context7 — all had CRITICAL or HIGH findings. See [full methodology and results](docs/scan-results-methodology.md).
+**Important context:** Capability-related findings (e.g., a server having shell tools) are reported as INFO for awareness only. Per the [MCP specification](https://modelcontextprotocol.io/specification/2025-03-26/architecture), human-in-the-loop enforcement is strictly a client/host responsibility, not the server's. See [full methodology and results](docs/scan-results-methodology.md).
 
 ## GitHub Action
 
@@ -112,7 +112,7 @@ See [docs/github-action-usage.md](docs/github-action-usage.md) for full options.
 
 ### `aguard scan`
 
-Finds real issues in **any** AI project — no MCP configs needed. Detects eval/exec on LLM output, hardcoded secrets (18+ patterns), Dockerfile misconfigs, unpinned AI deps, LangChain unsafe settings, system prompt leaks, and more.
+Finds real issues in **any** AI project — no MCP configs needed. Detects eval/exec on LLM output, hardcoded secrets (18+ patterns), missing authentication on remote endpoints, Dockerfile misconfigs, unpinned AI deps, LangChain unsafe settings, system prompt leaks, and more.
 
 ```
 $ aguard scan ./my-project/
@@ -260,7 +260,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, GitHub Action docs
-├── tests/                      # 95 tests
+├── tests/                      # 135 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```

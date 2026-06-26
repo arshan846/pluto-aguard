@@ -23,15 +23,17 @@
 
 - Each config scanned using `scan_mcp_config()` directly (no subprocess overhead)
 - Findings categorized by: secrets, permissions, authentication, transport, context_safety
-- Severity assigned per rule: CRITICAL, HIGH, MEDIUM
-- Risk score: `min(100, critical_high_count × 25)`
+- Severity levels: HIGH (actionable security issues), MEDIUM (transport hygiene), INFO (capability awareness)
+- Risk score: `min(100, high_count × 25)`
+- Capability-related findings (dangerous packages, context limits) are INFO — per the MCP spec, HITL enforcement is a client/host responsibility
 
 ### What we DON'T claim
 
 - This is not a representative sample of all MCP users (only those who commit configs publicly)
 - Configs committed to public repos may be examples/demos rather than production configs
 - We cannot distinguish "intentionally insecure for testing" from "accidentally insecure"
-- Context safety findings (response/session limits) are advisory — no MCP standard mandates them yet
+- Context safety findings (response/session limits) are informational — the MCP spec has no standard field for these
+- Capability awareness items (e.g., "server has shell tools") are not vulnerabilities — they are inventory
 
 ### Popular servers subset
 
