@@ -142,7 +142,7 @@ class TestPopularServerDetection:
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
         pkg_findings = [f for f in findings if "playwright" in f.title.lower() and "browser" in f.description.lower()]
         assert len(pkg_findings) >= 1
-        assert pkg_findings[0].severity == Severity.HIGH
+        assert pkg_findings[0].severity == Severity.INFO
 
     def test_detects_chrome_devtools(self, tmp_path: Path) -> None:
         config = {
@@ -158,7 +158,7 @@ class TestPopularServerDetection:
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
         browser_findings = [f for f in findings if "chrome" in f.title.lower() or "browser" in f.description.lower()]
         assert len(browser_findings) >= 1
-        assert any(f.severity == Severity.CRITICAL for f in browser_findings)
+        assert any(f.severity == Severity.INFO for f in browser_findings)
 
     def test_detects_github_mcp_server(self, tmp_path: Path) -> None:
         config = {
@@ -192,7 +192,6 @@ class TestPopularServerDetection:
         n8n_findings = [f for f in findings if "n8n" in f.title.lower() or "workflow" in f.description.lower()]
         assert len(n8n_findings) >= 1
         assert any(f.severity == Severity.HIGH for f in n8n_findings)
-
     def test_detects_serena_shell(self, tmp_path: Path) -> None:
         config = {
             "mcpServers": {
@@ -207,7 +206,7 @@ class TestPopularServerDetection:
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
         serena_findings = [f for f in findings if "serena" in f.title.lower() or "shell" in f.description.lower()]
         assert len(serena_findings) >= 1
-        assert any(f.severity == Severity.CRITICAL for f in serena_findings)
+        assert any(f.severity == Severity.INFO for f in serena_findings)
 
     def test_detects_toolbox_database(self, tmp_path: Path) -> None:
         config = {
@@ -223,7 +222,7 @@ class TestPopularServerDetection:
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
         db_findings = [f for f in findings if "toolbox" in f.title.lower() or "database" in f.description.lower()]
         assert len(db_findings) >= 1
-        assert any(f.severity == Severity.HIGH for f in db_findings)
+        assert any(f.severity == Severity.INFO for f in db_findings)
 
     def test_detects_context7_injection(self, tmp_path: Path) -> None:
         config = {
@@ -255,7 +254,7 @@ class TestPopularServerDetection:
         findings = scan_mcp_config(tmp_path / "mcp.json", config)
         chrome_findings = [f for f in findings if "chrome" in f.title.lower() or "browser" in f.description.lower()]
         assert len(chrome_findings) >= 1
-        assert any(f.severity == Severity.CRITICAL for f in chrome_findings)
+        assert any(f.severity == Severity.INFO for f in chrome_findings)
 
 
 class TestDirectoryScanner:

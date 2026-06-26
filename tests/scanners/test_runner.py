@@ -53,7 +53,7 @@ class TestScanRunner:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            run_scan(str(project_dir), output_format="json", fail_on="critical")
+            run_scan(str(project_dir), output_format="json", fail_on="high")
 
         assert exc_info.value.code == 1
 

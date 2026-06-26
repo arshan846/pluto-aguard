@@ -86,7 +86,7 @@ class TestClientCLIFlag:
     """Tests for the --client CLI flag on the scan command."""
 
     def test_scan_without_client_flag(self, runner: CliRunner, dangerous_config: Path) -> None:
-        """Default scan (no --client) should keep original severity."""
+        """Default scan (no --client) should produce INFO severity for dangerous servers."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             out_path = f.name
         result = runner.invoke(
@@ -99,13 +99,13 @@ class TestClientCLIFlag:
             f for f in data["findings"]
             if f["id"].startswith("DANGEROUS-")
         ]
-        # Without --client, dangerous server findings should be critical or high
+        # DANGEROUS-PKG findings are now INFO (awareness, not vulnerability)
         for finding in dangerous:
-            assert finding["severity"] in ("critical", "high")
+            assert finding["severity"] == "info"
         Path(out_path).unlink(missing_ok=True)
 
     def test_scan_with_claude_desktop(self, runner: CliRunner, dangerous_config: Path) -> None:
-        """--client claude-desktop should downgrade DANGEROUS findings to medium."""
+        """--client claude-desktop should not change INFO findings (already lowest)."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             out_path = f.name
         result = runner.invoke(
@@ -118,14 +118,13 @@ class TestClientCLIFlag:
             f for f in data["findings"]
             if f["id"].startswith("DANGEROUS-")
         ]
+        # Already INFO, client profile doesn't change it further
         for finding in dangerous:
-            assert finding["severity"] == "medium"
-            assert finding["metadata"]["downgraded_by_client"] == "claude-desktop"
-            assert finding["metadata"]["original_severity"] == "critical_or_high"
+            assert finding["severity"] == "info"
         Path(out_path).unlink(missing_ok=True)
 
     def test_scan_with_custom_client(self, runner: CliRunner, dangerous_config: Path) -> None:
-        """--client custom should keep original severity."""
+        """--client custom should keep INFO severity (same as default)."""
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             out_path = f.name
         result = runner.invoke(
@@ -139,11 +138,11 @@ class TestClientCLIFlag:
             if f["id"].startswith("DANGEROUS-")
         ]
         for finding in dangerous:
-            assert finding["severity"] in ("critical", "high")
+            assert finding["severity"] == "info"
         Path(out_path).unlink(missing_ok=True)
 
     def test_auth_missing_not_downgraded(self, runner: CliRunner, tmp_path: Path) -> None:
-        """AUTH-MISSING should NOT be downgraded even with HITL client."""
+        """AUTH-MISSING should stay HIGH even with HITL client."""
         config = {
             "mcpServers": {
                 "myserver": {
@@ -166,7 +165,7 @@ class TestClientCLIFlag:
             if f["id"].startswith("AUTH-MISSING")
         ]
         for finding in auth_findings:
-            assert finding["severity"] == "critical"
+            assert finding["severity"] == "high"
         Path(out_path).unlink(missing_ok=True)
 
     def test_client_noted_in_text_output(self, runner: CliRunner, dangerous_config: Path) -> None:

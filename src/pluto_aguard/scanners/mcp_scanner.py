@@ -238,18 +238,30 @@ def _check_server_transport(
 
     url = config.get("url", config.get("endpoint", config.get("uri", "")))
     if isinstance(url, str) and url.startswith("http://"):
+        # Determine if this is localhost (lower practical risk)
+        is_localhost = any(
+            host in url for host in ("://127.0.0.1", "://localhost", "://0.0.0.0", "://[::1]")
+        )
         findings.append(Finding(
             id=f"TRANSPORT-HTTP-{server_name}",
             title=f"Insecure HTTP transport on MCP server '{server_name}'",
             description=(
                 f"MCP server '{server_name}' uses unencrypted HTTP ({url}). "
-                "Agent communications may be intercepted or tampered with."
+                + ("Since this is a localhost connection, the practical risk is lower "
+                   "but local processes could still intercept traffic."
+                   if is_localhost else
+                   "Agent communications may be intercepted or tampered with.")
             ),
-            severity=Severity.HIGH,
+            severity=Severity.MEDIUM if is_localhost else Severity.HIGH,
             category="transport",
             owasp_id="MCP07:2025",
             file_path=str(file_path),
-            remediation="Use HTTPS with TLS 1.2+ for all MCP server connections.",
+            remediation=(
+                "Use HTTPS with TLS 1.2+ for MCP server connections."
+                + (" For localhost servers, consider using a Unix domain socket or "
+                   "binding to a random port with a shared secret."
+                   if is_localhost else "")
+            ),
         ))
 
     return findings
@@ -262,26 +274,33 @@ def _check_server_auth(
     findings: list[Finding] = []
 
     auth = config.get("auth", config.get("authentication", config.get("credentials", None)))
+    headers = config.get("headers", {})
+    has_auth_header = isinstance(headers, dict) and any(
+        k.lower() in ("authorization", "x-api-key", "api-key") for k in headers
+    )
 
-    # Remote servers without auth are a problem
+    # Remote servers without auth are a concern
     url = config.get("url", config.get("endpoint", ""))
     is_remote = isinstance(url, str) and url.startswith(("http://", "https://"))
 
-    if is_remote and auth is None:
+    if is_remote and auth is None and not has_auth_header:
         findings.append(Finding(
             id=f"AUTH-MISSING-{server_name}",
-            title=f"No authentication on remote MCP server '{server_name}'",
+            title=f"No authentication configured for remote MCP server '{server_name}'",
             description=(
-                f"Remote MCP server '{server_name}' ({url}) has no authentication configured. "
-                "Unauthenticated MCP servers can be exploited by any network-adjacent attacker."
+                f"Remote MCP server '{server_name}' ({url}) has no authentication configured "
+                "in the client config (no 'auth', 'credentials', or Authorization header). "
+                "Note: some services may be intentionally public. If this endpoint performs "
+                "actions or returns sensitive data, authentication should be configured."
             ),
-            severity=Severity.CRITICAL,
+            severity=Severity.HIGH,
             category="authentication",
             owasp_id="MCP07:2025",
             file_path=str(file_path),
             remediation=(
-                "Add authentication (API key, OAuth, mTLS) to the MCP server. "
-                "Use short-lived, scoped credentials."
+                "If this endpoint requires authentication, add an API key, OAuth token, "
+                "or mTLS configuration. If the service is intentionally public and read-only, "
+                "this finding may be informational."
             ),
         ))
 
@@ -590,21 +609,22 @@ def _check_dangerous_server_packages(
             matched_packages.add(category)
             findings.append(Finding(
                 id=f"DANGEROUS-PKG-{server_name}-{category}",
-                title=f"Dangerous MCP server '{package}' on '{server_name}' without HITL",
+                title=f"High-capability MCP server '{package}' on '{server_name}'",
                 description=(
                     f"MCP server '{server_name}' uses '{package}' which grants {category} "
-                    f"access. {risk_desc} Without human-in-the-loop approval, a prompt "
-                    "injection attack could leverage this access."
+                    f"access. {risk_desc} Note: HITL enforcement is the MCP client's "
+                    "responsibility. Ensure your client prompts for approval before "
+                    "executing sensitive operations from this server."
                 ),
-                severity=severity,
-                category="permissions",
+                severity=Severity.INFO,
+                category="awareness",
                 owasp_id="MCP05:2025",
                 file_path=str(file_path),
                 evidence=f"Package: {package}",
                 remediation=(
-                    f"Add human-in-the-loop approval for '{server_name}' operations, "
-                    "restrict capabilities to the minimum required, "
-                    "and consider using read-only access where possible."
+                    f"Verify that your MCP client enforces human-in-the-loop approval "
+                    f"for '{server_name}' operations. Consider restricting capabilities "
+                    "to the minimum required."
                 ),
             ))
 
@@ -616,19 +636,19 @@ def _check_dangerous_server_packages(
             matched_packages.add(category)
             findings.append(Finding(
                 id=f"DANGEROUS-POPULAR-{server_name}-{category}",
-                title=f"Popular high-risk MCP server detected: '{server_name}' ({category})",
+                title=f"High-capability MCP server detected: '{server_name}' ({category})",
                 description=(
-                    f"MCP server '{server_name}' matches a known high-risk server pattern. "
-                    f"{risk_desc} Without human-in-the-loop approval, this is exploitable "
-                    "through prompt injection."
+                    f"MCP server '{server_name}' matches a known high-capability server pattern. "
+                    f"{risk_desc} Note: HITL enforcement is the MCP client's responsibility. "
+                    "Ensure your client prompts for approval before executing sensitive operations."
                 ),
-                severity=severity,
-                category="permissions",
+                severity=Severity.INFO,
+                category="awareness",
                 owasp_id="MCP05:2025",
                 file_path=str(file_path),
                 remediation=(
-                    f"Add human-in-the-loop approval for '{server_name}' and "
-                    "restrict to the minimum required capabilities."
+                    f"Verify that your MCP client enforces human-in-the-loop approval "
+                    f"for '{server_name}' and restrict to the minimum required capabilities."
                 ),
             ))
 
@@ -853,43 +873,43 @@ def _check_missing_context_limits(
     if not has_response_limits:
         findings.append(Finding(
             id="CONTEXT-NO-RESPONSE-LIMIT",
-            title="No response size limits on MCP servers — context stuffing risk",
+            title="No response size limits declared in config (informational)",
             description=(
                 "None of the configured MCP servers declare a response size limit "
-                "(max_tokens, max_response_length). Without limits, a compromised or "
-                "malicious tool can return oversized responses that push the agent's "
-                "system prompt and safety constraints out of the context window, "
-                "enabling follow-up attacks."
+                "(max_tokens, max_response_length). Note: the MCP specification does not "
+                "currently define a standard field for response limits. This is an "
+                "awareness item — consider whether your client or application layer "
+                "enforces response size constraints."
             ),
-            severity=Severity.MEDIUM,
+            severity=Severity.INFO,
             category="context_safety",
             owasp_id="MCP10:2025",
             file_path=str(file_path),
             remediation=(
-                "Add 'max_response_length' or 'max_tokens' limits to MCP server "
-                "configurations. A typical safe limit is 4000-8000 tokens per tool response. "
-                "Truncate oversized responses rather than passing them to the agent."
+                "If your MCP client or application layer does not enforce response size "
+                "limits, consider implementing truncation at the application level. "
+                "A typical safe limit is 4000-8000 tokens per tool response."
             ),
         ))
 
     if not has_session_limits:
         findings.append(Finding(
             id="CONTEXT-NO-SESSION-LIMIT",
-            title="No session/turn limits configured — multi-turn confusion risk",
+            title="No session/turn limits declared in config (informational)",
             description=(
-                "No maximum turn count or session timeout is configured. In long-running "
-                "conversations, agents can gradually lose track of earlier safety constraints "
-                "as the context window fills. An attacker can exploit this by slowly shifting "
-                "the agent's behavior over multiple turns until it forgets its policy."
+                "No maximum turn count or session timeout is configured. Note: the MCP "
+                "specification does not currently define standard fields for session limits. "
+                "This is an awareness item — consider whether your client or application "
+                "layer enforces session boundaries."
             ),
-            severity=Severity.MEDIUM,
+            severity=Severity.INFO,
             category="context_safety",
             owasp_id="MCP06:2025",
             file_path=str(file_path),
             remediation=(
-                "Add 'max_turns' (e.g., 20) and 'session_timeout' (e.g., 3600 seconds) "
-                "to limit conversation length. Re-inject system prompt/policy at regular "
-                "intervals in long sessions."
+                "If your client does not enforce session limits, consider implementing "
+                "max_turns (e.g., 20) and session_timeout (e.g., 3600 seconds) at the "
+                "application layer."
             ),
         ))
 

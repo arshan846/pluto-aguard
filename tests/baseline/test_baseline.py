@@ -46,7 +46,7 @@ class TestBaselineRunner:
         output = capsys.readouterr().out
         # Should detect new findings (auth + context safety checks)
         assert "New" in output
-        assert "No authentication on remote MCP server 'remote'" in output
+        assert "No authentication configured for remote MCP server 'remote'" in output
 
     def test_compare_baseline_detects_resolved_findings(
         self,
@@ -71,7 +71,7 @@ class TestBaselineRunner:
 
         output = capsys.readouterr().out
         assert "✅ Resolved (1):" in output
-        assert "No authentication on remote MCP server 'remote'" in output
+        assert "No authentication configured for remote MCP server 'remote'" in output
 
     def test_fail_on_drift_raises_system_exit(self, tmp_path: Path) -> None:
         project_dir = tmp_path / "project"

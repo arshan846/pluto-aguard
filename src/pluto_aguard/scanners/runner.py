@@ -92,13 +92,16 @@ def run_scan(
     if client_profile:
         for finding in all_findings:
             if should_downgrade(finding.id, client_profile):
-                finding.severity = Severity.MEDIUM
-                finding.metadata["original_severity"] = "critical_or_high"
-                finding.metadata["downgraded_by_client"] = client_profile.name
-                finding.remediation = (
-                    f"[Severity adjusted: {client_profile.display_name} has built-in HITL] "
-                    + (finding.remediation or "")
-                )
+                # Only downgrade if current severity is higher than MEDIUM
+                if finding.severity.value in ("critical", "high"):
+                    original = finding.severity.value
+                    finding.severity = Severity.MEDIUM
+                    finding.metadata["original_severity"] = original
+                    finding.metadata["downgraded_by_client"] = client_profile.name
+                    finding.remediation = (
+                        f"[Severity adjusted: {client_profile.display_name} has built-in HITL] "
+                        + (finding.remediation or "")
+                    )
 
     # Calculate overall risk score
     risk_score = _calculate_risk_score(all_findings, perm_risk_scores)
