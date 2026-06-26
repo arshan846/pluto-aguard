@@ -1,4 +1,0 @@
-Usage: main scan [OPTIONS] [PATH]
-Try 'main scan --help' for help.
-
-Error: Invalid value for '[PATH]': Path 'C:\\Resume\\projects\\examples\\demo-agent-project' does not exist.
