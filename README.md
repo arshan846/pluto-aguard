@@ -215,7 +215,7 @@ Replays agent action traces against a declared policy. Detects denied tool calls
 aguard monitor --trace-file traces.jsonl --policy policy.yaml
 ```
 
-Accepts OpenTelemetry JSONL or simple `{"tool_name": "X", "tool_args": {}}` format.
+Accepts real OTel GenAI semantic-convention traces (`gen_ai.tool.name`, `gen_ai.operation.name` — what OpenLIT and OTel-native LangChain instrumentation actually emit), this project's own OTel-shaped format, or a flat simple `{"tool_name": "X", "tool_args": {}}` format. See [docs/trace-ingestion.md](docs/trace-ingestion.md) and [examples/otel-genai-traces.jsonl](examples/otel-genai-traces.jsonl).
 
 ---
 
@@ -248,7 +248,7 @@ See [docs/owasp-control-matrix.md](docs/owasp-control-matrix.md) for the complet
 - [x] **v0.9** — OWASP-inspired control framework (20 controls, coverage reports)
 - [x] **v0.9.1** — Context manipulation pack (context stuffing, multi-turn confusion, indirect injection, RAG poisoning), supply-chain manifest poisoning scenario
 - [ ] **v1.0** — Runtime proxy / tool-call firewall (observability on live tool calls without full red-team harness)
-- [ ] **v1.1** — Multi-framework adapters (LangChain, CrewAI, AutoGen)
+- [ ] **v1.1** — Multi-framework adapters (LangChain, CrewAI, AutoGen). `aguard monitor` already ingests real OTel GenAI semantic-convention traces (see [docs/trace-ingestion.md](docs/trace-ingestion.md)) — a framework-specific setup adapter is what remains.
 - [ ] **v1.2** — Live agent testing (send adversarial inputs to running agents)
 
 ## Project Structure
@@ -269,7 +269,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, suppressions, GitHub Action docs
-├── tests/                      # 150 tests
+├── tests/                      # 156 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```

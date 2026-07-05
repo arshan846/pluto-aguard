@@ -221,6 +221,16 @@ class TestMonitorCommand:
             result = runner.invoke(main, ["monitor", "--trace-file", str(trace_file), "--policy", str(POLICY_FILE)])
             assert result.exit_code == 0
 
+    def test_monitor_with_otel_genai_trace(self, runner: CliRunner) -> None:
+        """A real-shaped OTel GenAI trace (gen_ai.* attributes, JSON-string
+        arguments, integer timestamps, no explicit turn numbers) should
+        parse and still catch the denied 'execute' tool call."""
+        trace_file = EXAMPLES_DIR / "otel-genai-traces.jsonl"
+        assert trace_file.exists()
+        result = runner.invoke(main, ["monitor", "--trace-file", str(trace_file), "--policy", str(POLICY_FILE)])
+        assert result.exit_code == 0
+        assert "denied tool 'execute'" in result.output
+
     def test_monitor_missing_both(self, runner: CliRunner) -> None:
         # No trace file and no live flag — should still run (may show help or empty)
         result = runner.invoke(main, ["monitor"])

@@ -5,6 +5,13 @@ Ingests OpenTelemetry traces or live agent output and detects:
 - Permission drift (behavior that exceeds declared capabilities)
 - Sensitive data access violations
 - Anomalous action patterns
+
+Trace formats: this recognizes the OTel GenAI semantic convention's
+gen_ai.* attribute namespace (gen_ai.tool.name, gen_ai.operation.name,
+gen_ai.tool.call.arguments) -- what real exporters like OpenLIT, Traceloop
+OpenLLMetry, and OTel-native LangChain instrumentation actually emit -- as
+well as this project's own ad-hoc tool.name/tool.args attributes and a flat
+simple-JSON format. See docs/trace-ingestion.md.
 """
 
 from __future__ import annotations
@@ -12,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 from rich.console import Console
@@ -27,6 +35,28 @@ ParsedTraceEvent = AgentAction | ApprovalEvent
 # (contains "post").
 _WRITE_INDICATOR_PATTERN = re.compile(
     r"\b(write|create|update|delete|insert|put|post)\b", re.IGNORECASE
+)
+
+# OTel GenAI semantic convention: gen_ai.operation.name identifies the kind
+# of span. Only the values relevant to policy checking are mapped here.
+_GENAI_OPERATION_ACTION_TYPES = {
+    "execute_tool": "tool_call",
+    "chat": "response",
+    "generate_content": "response",
+    "text_completion": "response",
+}
+
+# Attribute names carrying tool-call arguments, tried in priority order.
+# There's no single stable gen_ai.* attribute for this across the ecosystem
+# yet, so real exporters vary (Traceloop's OpenLLMetry uses its own
+# traceloop.* namespace for tool I/O). Values are often JSON-encoded
+# strings, since OTel span attributes must be primitives, not nested
+# objects -- a raw dict is only valid for this project's own trace format.
+_TOOL_ARG_ATTRS = (
+    "gen_ai.tool.call.arguments",
+    "gen_ai.tool.arguments",
+    "traceloop.entity.input",
+    "tool.args",
 )
 
 
@@ -46,8 +76,13 @@ def load_policy(policy_path: str | None) -> AgentPolicy | None:
     return AgentPolicy(**data)
 
 
-def parse_trace_line(line: str) -> ParsedTraceEvent | None:
-    """Parse a single JSONL trace line into an action or approval event."""
+def parse_trace_line(line: str, default_turn: int = 0) -> ParsedTraceEvent | None:
+    """Parse a single JSONL trace line into an action or approval event.
+
+    default_turn is used when the trace has no explicit turn number, which
+    is normal for real OTel GenAI traces -- "turn" is this project's own
+    concept for numbering actions, not part of any tracing standard.
+    """
     try:
         data = json.loads(line.strip())
     except json.JSONDecodeError:
@@ -55,22 +90,24 @@ def parse_trace_line(line: str) -> ParsedTraceEvent | None:
 
     if "name" in data and "attributes" in data:
         attrs = data.get("attributes", {})
-        action_type = attrs.get("action_type", _infer_action_type(data["name"]))
+        action_type = attrs.get("action_type", _infer_action_type(data["name"], attrs))
         if action_type == "approval":
             return ApprovalEvent(
-                tool_name=attrs.get("tool.name", attrs.get("approval.tool_name", data.get("name", "unknown"))),
+                tool_name=_extract_tool_name(attrs, data.get("name")) or "unknown",
                 approved_by=attrs.get("approval.approved_by", attrs.get("approved_by")),
                 approval_id=attrs.get("approval.id", attrs.get("approval_id")),
-                approved_at=attrs.get("approval.approved_at", data.get("startTimeUnixNano", data.get("timestamp"))),
+                approved_at=_stringify(
+                    attrs.get("approval.approved_at", data.get("startTimeUnixNano", data.get("timestamp")))
+                ),
                 expired=_as_bool(attrs.get("approval.expired", attrs.get("expired", False))),
             )
 
         return AgentAction(
-            turn=attrs.get("turn", 0),
-            timestamp=data.get("startTimeUnixNano", data.get("timestamp")),
+            turn=attrs.get("turn", default_turn),
+            timestamp=_stringify(data.get("startTimeUnixNano", data.get("timestamp"))),
             action_type=action_type,
-            tool_name=attrs.get("tool.name", data.get("name")),
-            tool_args=attrs.get("tool.args", {}),
+            tool_name=_extract_tool_name(attrs, data.get("name")),
+            tool_args=_extract_tool_args(attrs),
             result_summary=attrs.get("result.summary"),
         )
 
@@ -88,13 +125,51 @@ def parse_trace_line(line: str) -> ParsedTraceEvent | None:
         )
 
     if "action_type" in data or "tool_name" in data:
+        data.setdefault("turn", default_turn)
         return AgentAction(**data)
 
     return None
 
 
-def _infer_action_type(span_name: str) -> str:
-    """Infer action type from span name."""
+def _extract_tool_name(attrs: dict[str, Any], span_name: str | None) -> str | None:
+    """Resolve the tool name, preferring the OTel GenAI semantic convention."""
+    return (
+        attrs.get("gen_ai.tool.name")
+        or attrs.get("tool.name")
+        or attrs.get("approval.tool_name")
+        or attrs.get("traceloop.entity.name")
+        or span_name
+    )
+
+
+def _extract_tool_args(attrs: dict[str, Any]) -> dict[str, Any]:
+    """Resolve tool-call arguments, checking known attribute names in order.
+
+    OTel span attribute values must be primitives, so real exporters
+    typically JSON-encode structured arguments as a string.
+    """
+    for key in _TOOL_ARG_ATTRS:
+        if key not in attrs:
+            continue
+        value = attrs[key]
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return {"raw": value}
+            return parsed if isinstance(parsed, dict) else {"raw": value}
+    return {}
+
+
+def _infer_action_type(span_name: str, attrs: dict[str, Any] | None = None) -> str:
+    """Infer action type from span name, or gen_ai.operation.name if present."""
+    if attrs:
+        operation = attrs.get("gen_ai.operation.name")
+        if operation in _GENAI_OPERATION_ACTION_TYPES:
+            return _GENAI_OPERATION_ACTION_TYPES[operation]
+
     name_lower = span_name.lower()
     if any(k in name_lower for k in ("approval", "approve")):
         return "approval"
@@ -114,6 +189,17 @@ def _as_bool(value: object) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y"}
     return bool(value)
+
+
+def _stringify(value: object) -> str | None:
+    """Coerce a timestamp-like value to str.
+
+    Real OTel spans carry startTimeUnixNano as an integer; the models here
+    store timestamps as strings.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    return str(value)
 
 
 def check_action_against_policy(
@@ -269,11 +355,14 @@ def _process_trace_lines(
     all_violations: list[Finding],
 ) -> None:
     """Process a stream of trace lines and collect policy violations."""
+    # Real traces rarely carry an explicit turn number -- auto-assign one
+    # per action so finding IDs (which embed the turn) stay unique.
+    turn_counter = 0
     for line in lines:
         if not isinstance(line, str) or not line.strip():
             continue
 
-        event = parse_trace_line(line)
+        event = parse_trace_line(line, default_turn=turn_counter)
         if not event:
             continue
 
@@ -282,6 +371,8 @@ def _process_trace_lines(
         if isinstance(event, ApprovalEvent):
             approvals[event.tool_name.lower()] = event
             continue
+
+        turn_counter += 1
 
         if policy:
             violations = check_action_against_policy(event, policy, approvals)

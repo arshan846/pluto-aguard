@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pluto_aguard.models import AgentPolicy, ApprovalEvent, Severity
+from pluto_aguard.models import AgentAction, AgentPolicy, ApprovalEvent, Severity
 from pluto_aguard.monitor.runner import (
     check_action_against_policy,
     parse_trace_line,
@@ -58,6 +58,58 @@ class TestTraceParser:
         assert isinstance(action, ApprovalEvent)
         assert action.tool_name == "file_write"
         assert action.approved_by == "alice"
+
+    def test_parses_otel_genai_semantic_convention(self) -> None:
+        """Real exporters (OpenLIT, OTel-native LangChain) use gen_ai.* names,
+        not this project's ad-hoc tool.name/tool.args -- and OTel attribute
+        values must be primitives, so structured arguments are typically a
+        JSON-encoded string, not a nested object."""
+        line = json.dumps({
+            "name": "execute_tool sql_query",
+            "attributes": {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": "sql_query",
+                "gen_ai.tool.call.id": "call_1",
+                "gen_ai.tool.call.arguments": json.dumps({"query": "SELECT * FROM users"}),
+            },
+        })
+        action = parse_trace_line(line)
+        assert isinstance(action, AgentAction)
+        assert action.tool_name == "sql_query"
+        assert action.action_type == "tool_call"
+        assert action.tool_args == {"query": "SELECT * FROM users"}
+
+    def test_coerces_integer_otel_timestamp(self) -> None:
+        """startTimeUnixNano is an integer in real OTel spans; the model
+        stores timestamp as a string."""
+        line = json.dumps({
+            "name": "execute_tool sql_query",
+            "attributes": {"gen_ai.tool.name": "sql_query", "gen_ai.operation.name": "execute_tool"},
+            "startTimeUnixNano": 1730000000000000000,
+        })
+        action = parse_trace_line(line)
+        assert isinstance(action, AgentAction)
+        assert action.timestamp == "1730000000000000000"
+
+    def test_default_turn_used_when_absent(self) -> None:
+        """Real traces have no 'turn' attribute -- the caller supplies a
+        fallback (auto-incremented per action by _process_trace_lines)."""
+        line = json.dumps({
+            "name": "execute_tool sql_query",
+            "attributes": {"gen_ai.tool.name": "sql_query", "gen_ai.operation.name": "execute_tool"},
+        })
+        action = parse_trace_line(line, default_turn=3)
+        assert isinstance(action, AgentAction)
+        assert action.turn == 3
+
+    def test_explicit_turn_overrides_default(self) -> None:
+        line = json.dumps({
+            "name": "sql_query",
+            "attributes": {"turn": 7, "tool.name": "sql_query", "action_type": "tool_call"},
+        })
+        action = parse_trace_line(line, default_turn=3)
+        assert isinstance(action, AgentAction)
+        assert action.turn == 7
 
 
 class TestPolicyChecker:
