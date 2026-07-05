@@ -80,7 +80,7 @@ We scanned **1,200 real MCP configs** from public GitHub repos (1,159 unique pro
 
 ```yaml
 - name: Agent Security Gate
-  uses: arshan846/pluto-aguard@v0.9.4
+  uses: arshan846/pluto-aguard@v0.9.5
   with:
     path: '.'
     max-risk: '50'
@@ -271,7 +271,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, suppressions, GitHub Action docs
-├── tests/                      # 171 tests
+├── tests/                      # 174 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```
