@@ -1,15 +1,59 @@
 # 🛡️ Pluto AgentGuard
 
-**Security launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against attack scenarios, simulates risk impact, maps results to an OWASP-inspired control framework, and generates launch evidence.**
+**Your Claude Desktop / Cursor / VS Code MCP config may already let an AI agent call tools with no authentication, or ship a hardcoded API key. Check in 30 seconds.**
 
 [![CI](https://github.com/arshan846/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arshan846/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/pluto-aguard)](https://pypi.org/project/pluto-aguard/)
 
-## What Makes This Different
+## 30-Second Scan
 
-MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrails, AgentSeal). **Most focus on config detection or runtime analysis.** AgentGuard adds policy coverage testing, what-if simulation, drift detection, and launch evidence — all offline, no LLM or vendor lock-in:
+```bash
+pip install pluto-aguard
+
+# macOS Claude Desktop:
+aguard scan ~/Library/Application\ Support/Claude/
+
+# Windows Claude Desktop:
+aguard scan %APPDATA%\Claude\
+
+# Cursor / any project with a local mcp.json:
+aguard scan .
+```
+
+Real output from scanning a realistic (but fictional) `claude_desktop_config.json` built entirely from real MCP fields — no invented schema, see [examples/claude_desktop_config.json](examples/claude_desktop_config.json):
+
+```
+🔍 Scanning ...
+
+  🟠 HIGH: Hardcoded secret in env var 'GITHUB_PERSONAL_ACCESS_TOKEN' on server 'github' (MCP01:2025)
+  🟠 HIGH: Insecure HTTP transport on MCP server 'internal-metrics' (MCP07:2025)
+  🟠 HIGH: No authentication configured for remote MCP server 'internal-metrics' (MCP07:2025)
+  🟠 HIGH: Hardcoded GitHub Token detected (MCP01:2025)
+
+  📊 Risk Score: 44.8/100 ██████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+  📋 Findings: 4 high
+```
+
+No cloud accounts, no API keys, nothing leaves your machine — it's static analysis of the config file, not a live connection to your MCP servers. False positive? See [docs/suppressions.md](docs/suppressions.md).
+
+## There's More Than a Scanner
+
+Once you've found a problem, the harder question is "did my fix actually help, and can I prove it to whoever signs off on shipping this agent?" That's what the rest of AgentGuard is for — the two commands below are the part no other MCP scanner does:
+
+```bash
+git clone https://github.com/arshan846/pluto-aguard.git && cd pluto-aguard
+
+# See the risk score drop *before* you apply a fix
+aguard whatif --config ./examples/insecure-agent-config.yaml
+
+# Generate a launch-approval packet: findings + policy coverage + sign-off checklist
+aguard evidence ./examples/ --config ./examples/insecure-agent-config.yaml \
+  --policy ./examples/agent-policy.yaml
+```
+
+Plus policy coverage linting (`test`), an OWASP-inspired control report (`owasp`), and drift detection (`baseline`) — see [Commands](#commands) below, or the [interactive demo](docs/demo.html) for all 7 in action.
 
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
@@ -21,38 +65,7 @@ MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrail
 | Baseline drift detection | ❌ | ✅ `aguard baseline` |
 | Behavioral trace audit with approval model | ❌ | ✅ `aguard monitor` |
 
-📺 **[Interactive demo](docs/demo.html)** — see all 7 commands in action (clone repo, open in browser)
-
-## Quick Start (60 seconds)
-
-```bash
-pip install pluto-aguard
-
-# Clone for examples
-git clone https://github.com/arshan846/pluto-aguard.git && cd pluto-aguard
-
-# Scan a realistic insecure AI project — finds 18 real issues
-aguard scan ./examples/demo-agent-project/
-
-# Test your policy against 22 attack scenarios
-aguard test --policy ./examples/agent-policy.yaml --attack-pack all
-
-# Generate OWASP-inspired control coverage report
-aguard owasp ./examples/demo-agent-project/
-
-# Simulate policy changes — see risk drop before applying
-aguard whatif --config ./examples/insecure-agent-config.yaml
-
-# Generate launch readiness evidence packet
-aguard evidence ./examples/ --config ./examples/insecure-agent-config.yaml \
-  --policy ./examples/agent-policy.yaml
-
-# Save baseline, detect drift later
-aguard baseline create ./examples/
-aguard baseline compare ./examples/
-```
-
-No cloud accounts. No API keys. Runs entirely locally.
+MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrails, AgentSeal) and mostly stop at config detection or runtime analysis. AgentGuard's differentiator is the pair above — quantified risk delta before you change anything, and a packet to hand whoever approves the launch — not the scanning itself, which is table stakes.
 
 ## Real-World Validation: 1,200 GitHub Configs
 
