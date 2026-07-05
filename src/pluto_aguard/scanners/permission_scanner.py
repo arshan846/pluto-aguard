@@ -148,14 +148,19 @@ def calculate_permission_risk_score(config: dict[str, Any]) -> float:
     ratio, rather than shrinking the denominator in lockstep with the
     numerator and leaving it unchanged.
 
-    network/runtime/auth/permission_model are AgentGuard's own extended
-    policy vocabulary -- no config format has these by convention. They're
-    only scored once a config actually engages with that vocabulary (the
-    key is present), so a config that's never heard of e.g.
-    "runtime.sandbox" isn't penalized for lacking it, but one that sets
-    runtime.sandbox=false is. Without this gate, every real-world config
-    (including a genuinely well-configured one) would carry a large fixed
-    penalty just for not using fields specific to this project.
+    network.egress/runtime.sandbox/auth.token_type/permission_model are
+    AgentGuard's own extended policy vocabulary -- no config format has
+    these by convention. They're only scored once a config declares the
+    *specific field the check evaluates*, not merely the parent key: an
+    `auth: {type: oauth2}` block describes an auth mechanism and has
+    nothing to do with token_type, so it must not be treated as having
+    adopted-and-failed that check. Gating on the parent dict's presence
+    instead of the field itself would do exactly that. A config that's
+    never set runtime.sandbox at all isn't penalized for lacking it; one
+    that sets runtime.sandbox=false is. Without this gate, every
+    real-world config (including a genuinely well-configured one) would
+    carry a large fixed penalty just for not using fields specific to
+    this project.
     """
     score = 0.0
     max_possible = 0.0
@@ -203,21 +208,26 @@ def calculate_permission_risk_score(config: dict[str, Any]) -> float:
         max_possible += _PERMISSIONS_DECLARED_WEIGHT
 
         # Extended hardening controls: only counted if the config declares
-        # the corresponding key at all (adoption-gated -- see docstring).
+        # the *specific field the check evaluates*, not just the parent
+        # key -- e.g. `auth: {type: oauth2}` describes an auth mechanism
+        # and has nothing to do with token_type. Gating on the parent
+        # dict's mere presence would penalize that config for a field it
+        # never touched, exactly the problem adoption-gating exists to
+        # avoid (see docstring).
         network = config.get("network")
-        if isinstance(network, dict):
+        if isinstance(network, dict) and "egress" in network:
             if str(network.get("egress", "")).lower() != "allowlist":
                 score += _HARDENING_WEIGHT
             max_possible += _HARDENING_WEIGHT
 
         runtime = config.get("runtime")
-        if isinstance(runtime, dict):
+        if isinstance(runtime, dict) and "sandbox" in runtime:
             if not runtime.get("sandbox"):
                 score += _HARDENING_WEIGHT
             max_possible += _HARDENING_WEIGHT
 
         auth = config.get("auth")
-        if isinstance(auth, dict):
+        if isinstance(auth, dict) and "token_type" in auth:
             if str(auth.get("token_type", "")).lower() not in _EPHEMERAL_TOKEN_TYPES:
                 score += _HARDENING_WEIGHT
             max_possible += _HARDENING_WEIGHT

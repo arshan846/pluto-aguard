@@ -146,6 +146,29 @@ class TestRiskScoring:
         assert unsandboxed_score > base_score
         assert sandboxed_score < unsandboxed_score
 
+    def test_unrelated_key_under_same_parent_not_penalized(self) -> None:
+        """Gating must key on the specific field a check evaluates (e.g.
+        auth.token_type), not merely on the parent dict's presence. A
+        config declaring auth: {type: oauth2} has engaged with an auth
+        *mechanism*, not AgentGuard's token_type vocabulary, and must not
+        be penalized as if it had adopted-and-failed that check."""
+        base_config = {
+            "tools": ["sql_query"],
+            "permissions": {"sql_query": {"scope": "read", "access": "read"}},
+            "require_human_approval": ["sql_query"],
+            "timeout": 300,
+            "rate_limit": {"calls_per_minute": 50},
+        }
+        base_score = calculate_permission_risk_score(base_config)
+
+        unrelated_auth = {**base_config, "auth": {"type": "oauth2", "provider": "azure-ad"}}
+        unrelated_network = {**base_config, "network": {"allowed_hosts": ["db.internal"]}}
+        unrelated_runtime = {**base_config, "runtime": {"log_level": "debug"}}
+
+        assert calculate_permission_risk_score(unrelated_auth) == base_score
+        assert calculate_permission_risk_score(unrelated_network) == base_score
+        assert calculate_permission_risk_score(unrelated_runtime) == base_score
+
     def test_well_configured_agent_scores_low(self) -> None:
         """Regression guard: a genuinely well-configured agent must score
         in the low-risk band, not be penalized into a false-high score by
