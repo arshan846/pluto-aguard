@@ -16,6 +16,7 @@ from pluto_aguard.scanners.permission_scanner import (
     load_agent_config,
     scan_agent_permissions,
 )
+from pluto_aguard.suppressions import apply_suppressions
 
 console = Console()
 
@@ -35,6 +36,7 @@ def run_scan(
     fail_on: str | None = None,
     quiet: bool = False,
     client: str | None = None,
+    no_suppress: bool = False,
 ) -> ScanResult:
     """Run a full security scan on the given path."""
     start_time = time.monotonic()
@@ -103,6 +105,19 @@ def run_scan(
                         + (finding.remediation or "")
                     )
 
+    # Apply .aguard.yaml / inline suppressions unless explicitly disabled
+    suppressed_count = 0
+    if not no_suppress:
+        suppression = apply_suppressions(all_findings, project_path)
+        all_findings = suppression.kept
+        suppressed_count = suppression.suppressed_count
+        if not quiet and suppressed_count:
+            console.print(
+                f"  [dim]{suppressed_count} finding(s) suppressed "
+                f"({len(suppression.suppressed_by_config)} via .aguard.yaml, "
+                f"{len(suppression.suppressed_inline)} inline)[/dim]"
+            )
+
     # Calculate overall risk score
     risk_score = _calculate_risk_score(all_findings, perm_risk_scores)
 
@@ -114,6 +129,7 @@ def run_scan(
         risk_score=risk_score,
         scanned_files=scanned_files,
         scan_duration_ms=elapsed_ms,
+        suppressed_count=suppressed_count,
     )
 
     # Output results
@@ -209,13 +225,14 @@ def _print_quiet_report(result: ScanResult) -> None:
     total = len(result.findings)
     score = result.risk_score.overall
 
+    suffix = f" ({result.suppressed_count} suppressed)" if result.suppressed_count else ""
     if total == 0:
-        print("aguard: PASS - no findings")
+        print(f"aguard: PASS - no findings{suffix}")
     else:
         print(
             f"aguard: {total} findings "
             f"({c} critical, {h} high, {m} medium) "
-            f"risk={score}/100"
+            f"risk={score}/100{suffix}"
         )
 
 
@@ -223,7 +240,8 @@ def _print_text_report(result: ScanResult) -> None:
     """Print scan results as formatted text."""
     if not result.findings:
         console.print("\n  ✅ [green bold]No security issues found![/green bold]\n")
-        console.print(f"  📂 Scanned {result.scanned_files} files in {result.scan_duration_ms}ms")
+        suppressed_note = f" · {result.suppressed_count} suppressed" if result.suppressed_count else ""
+        console.print(f"  📂 Scanned {result.scanned_files} files in {result.scan_duration_ms}ms{suppressed_note}")
         return
 
     # Print findings grouped by severity
@@ -269,7 +287,8 @@ def _print_text_report(result: ScanResult) -> None:
     if parts:
         console.print(f"  📋 Findings: {' · '.join(parts)}")
 
-    console.print(f"  📂 Scanned {result.scanned_files} files in {result.scan_duration_ms}ms\n")
+    suppressed_note = f" · {result.suppressed_count} suppressed" if result.suppressed_count else ""
+    console.print(f"  📂 Scanned {result.scanned_files} files in {result.scan_duration_ms}ms{suppressed_note}\n")
 
 
 def _print_json_report(result: ScanResult, output_path: str | None) -> None:

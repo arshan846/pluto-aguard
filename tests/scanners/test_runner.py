@@ -77,3 +77,34 @@ class TestScanRunner:
             run_scan(str(project_dir), output_format="text", max_risk=1.0)
 
         assert exc_info.value.code == 1
+
+    def test_aguard_yaml_suppresses_findings(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "remote": {
+                            "url": "https://remote.example.com",
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        unsuppressed = run_scan(str(project_dir), output_format="json", quiet=True)
+        assert unsuppressed.findings
+        assert unsuppressed.suppressed_count == 0
+
+        (project_dir / ".aguard.yaml").write_text(
+            "ignore:\n  - rule: 'AUTH-MISSING'\n", encoding="utf-8"
+        )
+
+        suppressed = run_scan(str(project_dir), output_format="json", quiet=True)
+        assert suppressed.suppressed_count == len(unsuppressed.findings) - len(suppressed.findings)
+        assert not any(f.id.startswith("AUTH-MISSING") for f in suppressed.findings)
+
+        forced = run_scan(str(project_dir), output_format="json", quiet=True, no_suppress=True)
+        assert len(forced.findings) == len(unsuppressed.findings)

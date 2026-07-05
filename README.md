@@ -128,6 +128,8 @@ $ aguard scan ./my-project/
 
 CI flags: `--max-risk 50` / `--fail-on high` / `--format sarif`
 
+False positive? Suppress it via a `.aguard.yaml` file or an inline `# aguard-ignore` comment — see [docs/suppressions.md](docs/suppressions.md). Use `--no-suppress` to see every finding regardless of suppression rules.
+
 ### `aguard test`
 
 Tests 22 attack scenarios against your declared security policy. Reports what gets caught vs. what gets through. Pure policy coverage testing — no LLM needed.
@@ -261,10 +263,11 @@ pluto-aguard/
 │   ├── baseline/               # Snapshot + drift comparison
 │   ├── monitor/                # Behavioral trace audit
 │   ├── simulator/              # What-If policy simulation
+│   ├── suppressions.py         # .aguard.yaml + inline finding suppression
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
-├── docs/                       # Risk scoring, OWASP matrix, GitHub Action docs
-├── tests/                      # 139 tests
+├── docs/                       # Risk scoring, OWASP matrix, suppressions, GitHub Action docs
+├── tests/                      # 150 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```

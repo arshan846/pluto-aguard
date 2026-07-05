@@ -104,6 +104,7 @@ class ScanResult(BaseModel):
     risk_score: RiskScore
     scanned_files: int = 0
     scan_duration_ms: int = 0
+    suppressed_count: int = 0
 
 
 class ControlResult(BaseModel):
