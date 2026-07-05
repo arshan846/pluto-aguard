@@ -1,9 +1,23 @@
 """CLI entry point for Pluto AgentGuard."""
 
+import sys
+
 import click
 from rich.console import Console
 
 from pluto_aguard import __version__
+
+# Windows terminals commonly default stdout/stderr to a legacy codepage (e.g.
+# cp1252) that can't encode the emoji and box-drawing characters used
+# throughout this CLI's output, raising UnicodeEncodeError even on --help.
+# This must run at import time: eager options like --help/--version are
+# processed by Click before main()'s body ever executes.
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 console = Console()
 
@@ -34,6 +48,11 @@ def main() -> None:
     default=None,
     help="MCP client in use — adjusts severity for clients with built-in HITL approval",
 )
+@click.option(
+    "--no-suppress",
+    is_flag=True,
+    help="Ignore .aguard.yaml and inline 'aguard-ignore' comments; show every finding",
+)
 def scan(
     path: str,
     output_format: str,
@@ -42,11 +61,15 @@ def scan(
     fail_on: str | None,
     quiet: bool,
     client: str | None,
+    no_suppress: bool,
 ) -> None:
     """🔍 Scan agent project for security vulnerabilities.
 
     Analyzes MCP server configs, environment files, and agent definitions
     for security issues mapped to an OWASP-inspired control framework.
+
+    Findings can be suppressed via a .aguard.yaml file at the project root
+    or inline "# aguard-ignore" comments — see docs/suppressions.md.
     """
     from pluto_aguard.scanners.runner import run_scan
 
@@ -58,6 +81,7 @@ def scan(
         fail_on=fail_on,
         quiet=quiet,
         client=client,
+        no_suppress=no_suppress,
     )
 
 
