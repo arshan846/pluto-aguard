@@ -18,6 +18,7 @@ from pluto_aguard.scanners.permission_scanner import (
     scan_agent_permissions,
 )
 from pluto_aguard.scanners.runner import AGENT_CONFIG_FILES, _calculate_risk_score
+from pluto_aguard.suppressions import apply_suppressions
 
 console = Console()
 
@@ -103,7 +104,11 @@ def _collect_project_state(project_path: Path) -> tuple[list[Finding], list[floa
             findings.extend(scan_agent_permissions(config_file, config))
             permission_scores.append(calculate_permission_risk_score(config))
 
-    return findings, permission_scores
+    suppression = apply_suppressions(findings, project_path)
+    if suppression.suppressed_count:
+        console.print(f"  [dim]{suppression.suppressed_count} finding(s) suppressed[/dim]")
+
+    return suppression.kept, permission_scores
 
 
 def _serialize_finding(finding: Finding) -> dict[str, Any]:

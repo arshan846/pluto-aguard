@@ -103,6 +103,23 @@ data_access_rules:
         assert "**Allowed tools:** sql_query" in content
         assert "**Denied tools:** execute" in content
 
+    def test_respects_aguard_yaml_suppression(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "mcp.json").write_text(
+            '{"mcpServers": {"remote": {"url": "https://remote.example.com"}}}',
+            encoding="utf-8",
+        )
+        (project_dir / ".aguard.yaml").write_text(
+            "ignore:\n  - rule: 'AUTH-MISSING'\n", encoding="utf-8"
+        )
+        output_file = tmp_path / "launch-readiness.md"
+
+        run_evidence(str(project_dir), output_path=str(output_file))
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "No authentication configured" not in content
+
     def test_handles_missing_config_and_policy(self, tmp_path: Path) -> None:
         project_dir = tmp_path / "project"
         project_dir.mkdir()

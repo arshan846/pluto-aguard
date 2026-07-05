@@ -18,6 +18,7 @@ from pluto_aguard.scanners.permission_scanner import (
     scan_agent_permissions,
 )
 from pluto_aguard.scanners.runner import AGENT_CONFIG_FILES, _calculate_risk_score
+from pluto_aguard.suppressions import apply_suppressions
 
 console = Console()
 
@@ -52,6 +53,11 @@ def run_evidence(
         policy_display = str(policy_file)
         console.print(f"  [dim]Loading policy:[/dim] {policy_file}")
         policy_data = _load_yaml(policy_file)
+
+    suppression = apply_suppressions(findings, project_path)
+    findings = suppression.kept
+    if suppression.suppressed_count:
+        console.print(f"  [dim]{suppression.suppressed_count} finding(s) suppressed[/dim]")
 
     risk_score = _calculate_risk_score(findings, permission_scores)
     markdown = _render_markdown(

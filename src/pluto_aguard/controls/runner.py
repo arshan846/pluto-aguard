@@ -15,6 +15,7 @@ from pluto_aguard.models import ControlResult, Finding
 from pluto_aguard.scanners.ai_config_scanner import scan_ai_configs
 from pluto_aguard.scanners.mcp_scanner import scan_directory
 from pluto_aguard.scanners.permission_scanner import load_agent_config, scan_agent_permissions
+from pluto_aguard.suppressions import apply_suppressions
 
 console = Console()
 
@@ -117,6 +118,11 @@ def run_owasp_report(
                 all_findings.extend(scan_agent_permissions(config_file, config))
             except (OSError, ValueError):
                 continue
+
+    suppression = apply_suppressions(all_findings, project_path)
+    all_findings = suppression.kept
+    if suppression.suppressed_count:
+        console.print(f"  [dim]{suppression.suppressed_count} finding(s) suppressed[/dim]")
 
     control_results = evaluate_controls(all_findings)
 

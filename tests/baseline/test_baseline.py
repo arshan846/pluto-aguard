@@ -73,6 +73,45 @@ class TestBaselineRunner:
         assert "✅ Resolved (1):" in output
         assert "No authentication configured for remote MCP server 'remote'" in output
 
+    def test_create_baseline_respects_aguard_yaml(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "mcp.json").write_text(
+            '{"mcpServers": {"remote": {"url": "https://remote.example.com"}}}',
+            encoding="utf-8",
+        )
+        (project_dir / ".aguard.yaml").write_text(
+            "ignore:\n  - rule: 'AUTH-MISSING'\n", encoding="utf-8"
+        )
+        baseline_file = tmp_path / ".aguard-baseline.json"
+
+        create_baseline(str(project_dir), output_path=str(baseline_file))
+
+        data = json.loads(baseline_file.read_text(encoding="utf-8"))
+        assert not any(f["id"].startswith("AUTH-MISSING") for f in data["findings"])
+
+    def test_compare_baseline_suppressed_finding_is_not_new(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A finding hidden by .aguard.yaml must not surface as drift."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        baseline_file = tmp_path / ".aguard-baseline.json"
+
+        create_baseline(str(project_dir), output_path=str(baseline_file))
+        (project_dir / "mcp.json").write_text(
+            '{"mcpServers": {"remote": {"url": "https://remote.example.com"}}}',
+            encoding="utf-8",
+        )
+        (project_dir / ".aguard.yaml").write_text(
+            "ignore:\n  - rule: 'AUTH-MISSING'\n", encoding="utf-8"
+        )
+
+        compare_baseline(str(project_dir), baseline_path=str(baseline_file))
+
+        output = capsys.readouterr().out
+        assert "No authentication configured for remote MCP server 'remote'" not in output
+
     def test_fail_on_drift_raises_system_exit(self, tmp_path: Path) -> None:
         project_dir = tmp_path / "project"
         project_dir.mkdir()

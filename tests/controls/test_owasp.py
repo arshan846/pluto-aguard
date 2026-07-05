@@ -1,7 +1,9 @@
 """Tests for OWASP control framework."""
 
+from pathlib import Path
+
 from pluto_aguard.controls.registry import CONTROLS, get_controls_by_command, get_controls_by_owasp
-from pluto_aguard.controls.runner import evaluate_controls
+from pluto_aguard.controls.runner import evaluate_controls, run_owasp_report
 from pluto_aguard.models import Finding, Severity
 
 
@@ -77,3 +79,33 @@ class TestControlEvaluation:
         test_results = [result for result in results if result.command == "test"]
         for result in test_results:
             assert result.status == "not_tested"
+
+
+class TestOwaspReportSuppression:
+    """run_owasp_report must respect .aguard.yaml, not just evaluate_controls."""
+
+    def test_respects_aguard_yaml(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "mcp.json").write_text(
+            '{"mcpServers": {"remote": {"url": "https://remote.example.com"}}}',
+            encoding="utf-8",
+        )
+
+        without_suppression = run_owasp_report(str(project_dir))
+        mcp07_before = [
+            r for r in without_suppression if "MCP07:2025" in r.owasp_refs and r.command == "scan"
+        ]
+        assert any(r.status == "fail" for r in mcp07_before)
+
+        (project_dir / ".aguard.yaml").write_text(
+            "ignore:\n  - rule: 'AUTH-MISSING'\n", encoding="utf-8"
+        )
+        with_suppression = run_owasp_report(str(project_dir))
+        auth_findings = [
+            f
+            for r in with_suppression
+            for f in r.findings
+            if f.id.startswith("AUTH-MISSING")
+        ]
+        assert auth_findings == []
