@@ -11,6 +11,7 @@ from typing import Any
 from rich.console import Console
 
 from pluto_aguard.models import Finding, Severity
+from pluto_aguard.scanners.ai_config_scanner import scan_ai_configs
 from pluto_aguard.scanners.mcp_scanner import scan_directory
 from pluto_aguard.scanners.permission_scanner import (
     calculate_permission_risk_score,
@@ -92,6 +93,7 @@ def compare_baseline(path: str, baseline_path: str, fail_on_drift: bool = False)
 
 def _collect_project_state(project_path: Path) -> tuple[list[Finding], list[float]]:
     findings = scan_directory(project_path)
+    findings.extend(scan_ai_configs(project_path))
     permission_scores: list[float] = []
 
     for config_name in AGENT_CONFIG_FILES:

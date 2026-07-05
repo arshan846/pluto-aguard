@@ -90,6 +90,22 @@ class TestBaselineRunner:
         data = json.loads(baseline_file.read_text(encoding="utf-8"))
         assert not any(f["id"].startswith("AUTH-MISSING") for f in data["findings"])
 
+    def test_includes_ai_config_scanner_findings(self, tmp_path: Path) -> None:
+        """baseline must surface Dockerfile/LangChain findings too, not
+        just MCP config + secrets + agent-permission findings."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "Dockerfile").write_text(
+            "FROM python:3.12\nENV OPENAI_API_KEY=sk-live-abcdefghijklmnop\n",
+            encoding="utf-8",
+        )
+        baseline_file = tmp_path / ".aguard-baseline.json"
+
+        create_baseline(str(project_dir), output_path=str(baseline_file))
+
+        data = json.loads(baseline_file.read_text(encoding="utf-8"))
+        assert any(f["id"].startswith("AI-DOCKER-SECRET") for f in data["findings"])
+
     def test_compare_baseline_suppressed_finding_is_not_new(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

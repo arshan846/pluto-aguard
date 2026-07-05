@@ -11,6 +11,7 @@ from rich.console import Console
 
 from pluto_aguard import __version__
 from pluto_aguard.models import Finding, RiskScore, Severity
+from pluto_aguard.scanners.ai_config_scanner import scan_ai_configs
 from pluto_aguard.scanners.mcp_scanner import scan_directory
 from pluto_aguard.scanners.permission_scanner import (
     calculate_permission_risk_score,
@@ -77,6 +78,7 @@ def run_evidence(
 
 def _collect_project_state(project_path: Path) -> tuple[list[Finding], list[float], set[Path]]:
     findings = scan_directory(project_path)
+    findings.extend(scan_ai_configs(project_path))
     permission_scores: list[float] = []
     scanned_configs: set[Path] = set()
 

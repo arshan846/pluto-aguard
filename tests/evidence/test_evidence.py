@@ -120,6 +120,22 @@ data_access_rules:
         content = output_file.read_text(encoding="utf-8")
         assert "No authentication configured" not in content
 
+    def test_includes_ai_config_scanner_findings(self, tmp_path: Path) -> None:
+        """evidence must surface Dockerfile/LangChain findings too, not
+        just MCP config + secrets + agent-permission findings."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "Dockerfile").write_text(
+            "FROM python:3.12\nENV OPENAI_API_KEY=sk-live-abcdefghijklmnop\n",
+            encoding="utf-8",
+        )
+        output_file = tmp_path / "launch-readiness.md"
+
+        run_evidence(str(project_dir), output_path=str(output_file))
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "Secret in Dockerfile ENV" in content
+
     def test_handles_missing_config_and_policy(self, tmp_path: Path) -> None:
         project_dir = tmp_path / "project"
         project_dir.mkdir()

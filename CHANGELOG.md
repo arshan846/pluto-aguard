@@ -9,8 +9,9 @@ All notable changes to Pluto AgentGuard will be documented in this file.
 - **whatif**: the permission risk scorer's fixed hardening-category baseline included four fields (`network.egress`, `runtime.sandbox`, `auth.token_type`, `permission_model`) that are AgentGuard's own invented policy vocabulary, not something any real config has by convention. This put an artificial ~20-30 point floor under every score regardless of how well-configured the agent actually was — the project's own best-practice `secure-agent-config.yaml` example scored 50/100. These four categories are now adoption-gated: they only count toward the score if the config actually declares that key. The same example now scores 1.5/100; a maximally locked-down single tool scores ~0.1.
 - **monitor**: the approval queue's FIFO fallback could pop an *expired* approval ahead of a *valid* one sitting later in the queue, raising a false "expired approval" violation even though a usable approval was available. Non-expired approvals are now preferred; an expired one only surfaces once nothing else is usable.
 - **suppressions**: the inline `# aguard-ignore: <prefix>` regex excluded `.` from the prefix character class, silently truncating any scoped suppression that included a filename (most per-instance finding IDs do, e.g. `SECRET-...-config.yaml-L12`). Dots are now allowed.
+- **evidence/baseline**: neither command called `scan_ai_configs`, so Dockerfile, LangChain, and system-prompt-leak findings never appeared in a launch-readiness packet or a security baseline regardless of suppression — only `scan`/`owasp` picked those up. Both now scan the same surface.
 
-- 171 tests passing (up from 161).
+- 173 tests passing (up from 161).
 
 ## [0.9.4] — 2026-07-05
 
