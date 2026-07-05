@@ -130,16 +130,31 @@ def scan_agent_permissions(file_path: Path, config: dict[str, Any]) -> list[Find
     return findings
 
 
+_HARDENING_WEIGHT = 5.0
+_PERMISSIONS_DECLARED_WEIGHT = 10.0
+_EPHEMERAL_TOKEN_TYPES = ("ephemeral", "short-lived", "rotating")
+_READ_ONLY_ACCESS_LEVELS = ("read", "readonly", "read-only")
+
+
 def calculate_permission_risk_score(config: dict[str, Any]) -> float:
     """Calculate a risk score (0-100) based on agent permissions.
 
     Higher scores indicate more permissive (riskier) configurations.
+
+    The denominator (max_possible) is a fixed worst-case baseline: every
+    hardening category always contributes to it once the agent has tools,
+    regardless of whether that control is currently satisfied. This ensures
+    that closing a gap (e.g. adding a timeout, restricting network egress)
+    always reduces the score ratio, rather than shrinking the denominator
+    in lockstep with the numerator and leaving the ratio unchanged.
     """
     score = 0.0
     max_possible = 0.0
 
     tools = config.get("tools", config.get("allowed_tools", []))
     permissions = config.get("permissions", {})
+    if not isinstance(permissions, dict):
+        permissions = {}
     hitl = config.get("require_human_approval", [])
 
     for tool in tools:
@@ -154,27 +169,51 @@ def calculate_permission_risk_score(config: dict[str, Any]) -> float:
         if tool_name in hitl:
             tool_risk *= 0.3
 
-        # Reduce if scoped permissions exist
         tool_perms = permissions.get(tool_name, {})
-        if isinstance(tool_perms, dict) and tool_perms.get("scope"):
-            tool_risk *= 0.5
+        if isinstance(tool_perms, dict):
+            # Reduce if scoped permissions exist
+            if tool_perms.get("scope"):
+                tool_risk *= 0.5
+            # Reduce if the tool is restricted to read-only access
+            if str(tool_perms.get("access", "")).lower() in _READ_ONLY_ACCESS_LEVELS:
+                tool_risk *= 0.4
 
         score += tool_risk
 
-    # Factor in missing controls
+    # Factor in missing controls. max_possible always grows by the same
+    # amount whether or not the control is satisfied, so the ratio actually
+    # moves when a control is added.
     if tools:  # Only penalize missing controls if agent has tools
-        if not config.get("timeout"):
-            score += 5
-            max_possible += 5
-        if not config.get("rate_limit"):
-            score += 5
-            max_possible += 5
-        if not permissions and tools:
-            score += 10
-            max_possible += 10
+        network = config.get("network", {})
+        network_egress = str(network.get("egress", "")).lower() if isinstance(network, dict) else ""
+
+        runtime = config.get("runtime", {})
+        sandboxed = bool(runtime.get("sandbox")) if isinstance(runtime, dict) else False
+
+        auth = config.get("auth", {})
+        auth_token_type = str(auth.get("token_type", "")).lower() if isinstance(auth, dict) else ""
+
+        permission_model = str(config.get("permission_model", "")).lower()
+
+        hardening_gaps = [
+            not config.get("timeout"),
+            not config.get("rate_limit"),
+            network_egress != "allowlist",
+            not sandboxed,
+            auth_token_type not in _EPHEMERAL_TOKEN_TYPES,
+            permission_model != "allowlist",
+        ]
+        for gap in hardening_gaps:
+            max_possible += _HARDENING_WEIGHT
+            if gap:
+                score += _HARDENING_WEIGHT
+
+        max_possible += _PERMISSIONS_DECLARED_WEIGHT
+        if not permissions:
+            score += _PERMISSIONS_DECLARED_WEIGHT
 
     if max_possible == 0:
-        return 0.0 if not tools else 0.0
+        return 0.0
 
     return min(100.0, (score / max_possible) * 100)
 

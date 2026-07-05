@@ -37,11 +37,8 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
             "or misbehaving agents."
         ),
         "transforms": {
-            "tools.sql_query.permissions": "read",
-            "tools.database.permissions": "read",
-        },
-        "risk_reduction": {
-            "permissions": 0.6,
+            "permissions.sql_query.access": "read",
+            "permissions.database.access": "read",
         },
     },
     {
@@ -54,9 +51,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         ),
         "transforms": {
             "require_human_approval": ["file_write", "file_delete"],
-        },
-        "risk_reduction": {
-            "permissions": 0.5,
         },
     },
     {
@@ -71,9 +65,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
             "auth.token_type": "ephemeral",
             "auth.rotation_seconds": 3600,
         },
-        "risk_reduction": {
-            "secrets": 0.3,
-        },
     },
     {
         "id": "add-rate-limits",
@@ -87,9 +78,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
             "rate_limit": {"calls_per_minute": 100},
             "timeout": 300,
         },
-        "risk_reduction": {
-            "permissions": 0.8,
-        },
     },
     {
         "id": "restrict-network-egress",
@@ -101,9 +89,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         ),
         "transforms": {
             "network.egress": "allowlist",
-        },
-        "risk_reduction": {
-            "permissions": 0.7,
         },
     },
     {
@@ -117,9 +102,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "transforms": {
             "permission_model": "allowlist",
         },
-        "risk_reduction": {
-            "permissions": 0.5,
-        },
     },
     {
         "id": "sandbox-execution",
@@ -132,10 +114,6 @@ BUILTIN_POLICIES: list[dict[str, Any]] = [
         "transforms": {
             "runtime.sandbox": True,
             "runtime.network_isolation": True,
-        },
-        "risk_reduction": {
-            "permissions": 0.4,
-            "secrets": 0.6,
         },
     },
 ]
