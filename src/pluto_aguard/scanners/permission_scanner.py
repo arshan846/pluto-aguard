@@ -141,12 +141,21 @@ def calculate_permission_risk_score(config: dict[str, Any]) -> float:
 
     Higher scores indicate more permissive (riskier) configurations.
 
-    The denominator (max_possible) is a fixed worst-case baseline: every
-    hardening category always contributes to it once the agent has tools,
-    regardless of whether that control is currently satisfied. This ensures
-    that closing a gap (e.g. adding a timeout, restricting network egress)
-    always reduces the score ratio, rather than shrinking the denominator
-    in lockstep with the numerator and leaving the ratio unchanged.
+    The denominator (max_possible) is a fixed worst-case baseline for the
+    controls any agent config is expected to have (timeout, rate limit,
+    declared permissions): these always contribute to it once the agent
+    has tools, so closing a gap (e.g. adding a timeout) always moves the
+    ratio, rather than shrinking the denominator in lockstep with the
+    numerator and leaving it unchanged.
+
+    network/runtime/auth/permission_model are AgentGuard's own extended
+    policy vocabulary -- no config format has these by convention. They're
+    only scored once a config actually engages with that vocabulary (the
+    key is present), so a config that's never heard of e.g.
+    "runtime.sandbox" isn't penalized for lacking it, but one that sets
+    runtime.sandbox=false is. Without this gate, every real-world config
+    (including a genuinely well-configured one) would carry a large fixed
+    penalty just for not using fields specific to this project.
     """
     score = 0.0
     max_possible = 0.0
@@ -180,37 +189,43 @@ def calculate_permission_risk_score(config: dict[str, Any]) -> float:
 
         score += tool_risk
 
-    # Factor in missing controls. max_possible always grows by the same
-    # amount whether or not the control is satisfied, so the ratio actually
-    # moves when a control is added.
     if tools:  # Only penalize missing controls if agent has tools
-        network = config.get("network", {})
-        network_egress = str(network.get("egress", "")).lower() if isinstance(network, dict) else ""
+        if not config.get("timeout"):
+            score += _HARDENING_WEIGHT
+        max_possible += _HARDENING_WEIGHT
 
-        runtime = config.get("runtime", {})
-        sandboxed = bool(runtime.get("sandbox")) if isinstance(runtime, dict) else False
+        if not config.get("rate_limit"):
+            score += _HARDENING_WEIGHT
+        max_possible += _HARDENING_WEIGHT
 
-        auth = config.get("auth", {})
-        auth_token_type = str(auth.get("token_type", "")).lower() if isinstance(auth, dict) else ""
-
-        permission_model = str(config.get("permission_model", "")).lower()
-
-        hardening_gaps = [
-            not config.get("timeout"),
-            not config.get("rate_limit"),
-            network_egress != "allowlist",
-            not sandboxed,
-            auth_token_type not in _EPHEMERAL_TOKEN_TYPES,
-            permission_model != "allowlist",
-        ]
-        for gap in hardening_gaps:
-            max_possible += _HARDENING_WEIGHT
-            if gap:
-                score += _HARDENING_WEIGHT
-
-        max_possible += _PERMISSIONS_DECLARED_WEIGHT
         if not permissions:
             score += _PERMISSIONS_DECLARED_WEIGHT
+        max_possible += _PERMISSIONS_DECLARED_WEIGHT
+
+        # Extended hardening controls: only counted if the config declares
+        # the corresponding key at all (adoption-gated -- see docstring).
+        network = config.get("network")
+        if isinstance(network, dict):
+            if str(network.get("egress", "")).lower() != "allowlist":
+                score += _HARDENING_WEIGHT
+            max_possible += _HARDENING_WEIGHT
+
+        runtime = config.get("runtime")
+        if isinstance(runtime, dict):
+            if not runtime.get("sandbox"):
+                score += _HARDENING_WEIGHT
+            max_possible += _HARDENING_WEIGHT
+
+        auth = config.get("auth")
+        if isinstance(auth, dict):
+            if str(auth.get("token_type", "")).lower() not in _EPHEMERAL_TOKEN_TYPES:
+                score += _HARDENING_WEIGHT
+            max_possible += _HARDENING_WEIGHT
+
+        if "permission_model" in config:
+            if str(config.get("permission_model", "")).lower() != "allowlist":
+                score += _HARDENING_WEIGHT
+            max_possible += _HARDENING_WEIGHT
 
     if max_possible == 0:
         return 0.0

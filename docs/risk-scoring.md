@@ -63,7 +63,8 @@ Current default tool weights:
 For each configured tool:
 
 - **Human-in-the-loop (HITL)** reduces tool risk to **0.3x**
-- **Scoped permissions** reduce tool risk to **0.5x**
+- **Scoped permissions** (`permissions.<tool>.scope` set) reduce tool risk to **0.5x**
+- **Read-only access** (`permissions.<tool>.access` is `read`/`readonly`/`read-only`) reduces tool risk to **0.4x**
 
 These reductions stack multiplicatively. For example, a `file_write` tool with HITL and a scope gets:
 
@@ -73,13 +74,25 @@ These reductions stack multiplicatively. For example, a `file_write` tool with H
 
 ### Missing control penalties
 
-If the agent has tools configured, missing controls increase score:
+If the agent has tools configured, the denominator (`max_possible`) is a fixed
+worst-case baseline: these categories always contribute to it, so closing a
+gap always moves the ratio rather than shrinking the denominator along with
+the numerator.
 
-- missing `timeout` = +5
-- missing `rate_limit` = +5
-- missing explicit `permissions` = +10
+- missing `timeout` = +5 (always counted)
+- missing `rate_limit` = +5 (always counted)
+- no explicit `permissions` declared = +10 (always counted)
 
-The raw permission score is then normalized to a 0-100 scale.
+Four more categories are AgentGuard's own extended policy vocabulary —
+`network.egress`, `runtime.sandbox`, `auth.token_type`, `permission_model` —
+which no config format has by convention. These are **adoption-gated**: each
+only counts toward the score (in either direction) if the config actually
+declares that key at all. A config that's never touched `runtime.sandbox`
+isn't penalized for lacking it; one that sets `runtime.sandbox: false` is.
+Each of these four is worth +5 when present-but-unsatisfied.
+
+The raw permission score is then normalized against the total of whichever
+categories actually counted, to a 0-100 scale.
 
 ## Example calculation
 
@@ -129,33 +142,36 @@ Missing controls:
 
 - no `timeout` = +5
 - no `rate_limit` = +5
-- explicit `permissions` exists, so no +10 penalty
+- explicit `permissions` exists, so no +10 penalty (but +10 still counts toward the denominator)
+- config has no `network`/`runtime`/`auth`/`permission_model` keys, so none of those four categories count toward either the score or the denominator (adoption-gated)
 
 Raw permission score:
 
 ```text
-1.535 + 5 + 5 = 11.535
+1.535 + 5 + 5 + 0 = 11.535
 ```
 
-Normalization denominator:
+Normalization denominator (tool weights + the three always-counted categories; the four extended categories are absent from this config, so they contribute nothing):
 
 ```text
-max_possible = 1.0 + 0.9 + 0.4 + 5 + 5 = 12.3
-permission_risk_score = (11.535 / 12.3) * 100 = 93.8
-permissions_component = 93.8 * 0.3 = 28.1
+max_possible = (1.0 + 0.9 + 0.4) + 5 + 5 + 10 = 22.3
+permission_risk_score = (11.535 / 22.3) * 100 = 51.7
+permissions_component = 51.7 * 0.3 = 15.5
 ```
 
 ### Step 3: overall score
 
 ```text
-overall_score = min(100, 44.1 + 28.1) = 72.2
+overall_score = min(100, 44.1 + 15.5) = 59.6
 ```
 
 Rounded output:
 
 ```text
-72.2 / 100
+59.6 / 100
 ```
+
+Verified by running `calculate_permission_risk_score` against this exact config: it returns `51.7`, matching Step 2 above.
 
 ## CI threshold guidance
 

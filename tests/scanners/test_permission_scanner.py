@@ -101,3 +101,60 @@ class TestRiskScoring:
         base_score = calculate_permission_risk_score(base_config)
         scoped_score = calculate_permission_risk_score(scoped_config)
         assert scoped_score < base_score
+
+    def test_read_only_access_reduces_score(self) -> None:
+        base_config = {"tools": ["sql_query"]}
+        readonly_config = {
+            "tools": ["sql_query"],
+            "permissions": {"sql_query": {"access": "read"}},
+        }
+        base_score = calculate_permission_risk_score(base_config)
+        readonly_score = calculate_permission_risk_score(readonly_config)
+        assert readonly_score < base_score
+
+    def test_extended_schema_fields_not_penalized_when_unused(self) -> None:
+        """A config that never touches network/runtime/auth/permission_model
+        must not be penalized for lacking AgentGuard-specific vocabulary it
+        was never told about."""
+        without_extended = {
+            "tools": ["sql_query"],
+            "permissions": {"sql_query": {"scope": "read", "access": "read"}},
+            "require_human_approval": ["sql_query"],
+            "timeout": 300,
+            "rate_limit": {"calls_per_minute": 50},
+        }
+        score = calculate_permission_risk_score(without_extended)
+        assert score < 5.0
+
+    def test_extended_schema_field_penalized_once_adopted(self) -> None:
+        """Once a config engages with e.g. runtime.sandbox, an unsatisfied
+        value there should count against the score."""
+        base_config = {
+            "tools": ["sql_query"],
+            "permissions": {"sql_query": {"scope": "read", "access": "read"}},
+            "require_human_approval": ["sql_query"],
+            "timeout": 300,
+            "rate_limit": {"calls_per_minute": 50},
+        }
+        adopted_but_unsandboxed = {**base_config, "runtime": {"sandbox": False}}
+        adopted_and_sandboxed = {**base_config, "runtime": {"sandbox": True}}
+
+        base_score = calculate_permission_risk_score(base_config)
+        unsandboxed_score = calculate_permission_risk_score(adopted_but_unsandboxed)
+        sandboxed_score = calculate_permission_risk_score(adopted_and_sandboxed)
+
+        assert unsandboxed_score > base_score
+        assert sandboxed_score < unsandboxed_score
+
+    def test_well_configured_agent_scores_low(self) -> None:
+        """Regression guard: a genuinely well-configured agent must score
+        in the low-risk band, not be penalized into a false-high score by
+        the fixed hardening-category baseline."""
+        config = {
+            "tools": ["sql_query"],
+            "permissions": {"sql_query": {"scope": "read", "access": "read"}},
+            "require_human_approval": ["sql_query"],
+            "timeout": 300,
+            "rate_limit": {"calls_per_minute": 50},
+        }
+        assert calculate_permission_risk_score(config) < 5.0

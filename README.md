@@ -182,13 +182,13 @@ $ aguard whatif --config examples/insecure-agent-config.yaml
 
   Current Risk Score: 100/100
 
-  ✅ Restrict SQL tool to SELECT-only queries               → 76  (↓ 24%)
-  ✅ Add human-in-the-loop for file operations              → 99  (↓ 2%)
-  ✅ Rotate API keys to ephemeral tokens                    → 88  (↓ 12%)
-  ✅ Add rate limits (100 calls/minute) and timeout (5 min) → 77  (↓ 23%)
-  ✅ Restrict outbound network access to allowlisted domains → 88  (↓ 12%)
-  ✅ Convert from implicit-allow to explicit tool allowlist → 88  (↓ 12%)
-  ✅ Run agent in sandboxed execution environment           → 88  (↓ 12%)
+  ✅ Restrict SQL tool to SELECT-only queries               → 56  (↓ 44%)
+  ✅ Add human-in-the-loop for file operations              → 97  (↓ 3%)
+  ✅ Rotate API keys to ephemeral tokens                    → 82  (↓ 18%)
+  ✅ Add rate limits (100 calls/minute) and timeout (5 min) → 57  (↓ 43%)
+  ✅ Restrict outbound network access to allowlisted domains → 82  (↓ 18%)
+  ✅ Convert from implicit-allow to explicit tool allowlist → 82  (↓ 18%)
+  ✅ Run agent in sandboxed execution environment           → 82  (↓ 18%)
 
   💡 Apply all 7 → Risk drops to 5 (↓95%)
 ```
@@ -271,7 +271,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, suppressions, GitHub Action docs
-├── tests/                      # 161 tests
+├── tests/                      # 171 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```
