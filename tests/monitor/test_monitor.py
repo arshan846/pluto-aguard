@@ -179,3 +179,29 @@ class TestPolicyChecker:
         assert action is not None
         violations = check_action_against_policy(action, self.policy)
         assert any("escalation" in v.title.lower() for v in violations)
+
+    def test_read_query_with_create_substring_not_flagged(self) -> None:
+        """SELECT of a 'created_at' column must not trip the write-word check."""
+        line = json.dumps({
+            "turn": 1,
+            "action_type": "tool_call",
+            "tool_name": "sql_query",
+            "tool_args": {"query": "SELECT created_at FROM orders"},
+        })
+        action = parse_trace_line(line)
+        assert action is not None
+        violations = check_action_against_policy(action, self.policy)
+        assert not any("escalation" in v.title.lower() for v in violations)
+
+    def test_postgres_connection_string_not_flagged_as_post(self) -> None:
+        """A 'postgres://' connection string must not trip the 'post' write-word check."""
+        line = json.dumps({
+            "turn": 1,
+            "action_type": "tool_call",
+            "tool_name": "sql_query",
+            "tool_args": {"connection": "postgres://readonly_user@db/analytics"},
+        })
+        action = parse_trace_line(line)
+        assert action is not None
+        violations = check_action_against_policy(action, self.policy)
+        assert not any("escalation" in v.title.lower() for v in violations)

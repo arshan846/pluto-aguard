@@ -38,6 +38,24 @@ class TestSecretScanner:
         findings = scan_file_for_secrets(config, config.read_text())
         assert len(findings) >= 1
 
+    def test_ignores_bearer_prose_false_positive(self, tmp_path: Path) -> None:
+        notes = tmp_path / "notes.py"
+        notes.write_text(
+            "# Bearer authentication is a common scheme used by many APIs.\n"
+        )
+        findings = scan_file_for_secrets(notes, notes.read_text())
+        assert len(findings) == 0
+
+    def test_detects_real_bearer_token(self, tmp_path: Path) -> None:
+        config = tmp_path / "client.py"
+        config.write_text(
+            'headers = {"Authorization": '
+            '"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'
+            'eyJzdWIiOiIxMjM0NTY3ODkwIn0.dQw4w9WgXcQ"}\n'
+        )
+        findings = scan_file_for_secrets(config, config.read_text())
+        assert any(f.category == "secrets" for f in findings)
+
 
 class TestMCPConfigScanner:
     """Tests for MCP configuration scanning."""

@@ -8,7 +8,10 @@ and tool poisoning indicators.
 from __future__ import annotations
 
 import json
+import math
 import re
+from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +81,37 @@ WILDCARD_PERMISSION_PATTERNS = [
 ]
 
 
+def _shannon_entropy(value: str) -> float:
+    """Compute Shannon entropy of a string in bits per character."""
+    if not value:
+        return 0.0
+    counts = Counter(value)
+    length = len(value)
+    return -sum((n / length) * math.log2(n / length) for n in counts.values())
+
+
+def _validate_bearer_token(match: re.Match[str]) -> bool:
+    """Reject 'Bearer <word>' matches that are prose, not a credential.
+
+    The raw regex matches any word after "bearer" (e.g. "Bearer authentication
+    is a common scheme"). Real bearer tokens are long, high-entropy opaque
+    strings or JWTs, so require both a minimum length and entropy above what
+    common English words exhibit.
+    """
+    parts = match.group().split(None, 1)
+    token = parts[1].rstrip("=") if len(parts) > 1 else ""
+    if len(token) < 16:
+        return False
+    return _shannon_entropy(token) >= 3.3
+
+
+# Per-pattern extra validation to suppress false positives that the regex
+# alone can't rule out (e.g. prose sentences matching a loose token pattern).
+_EXTRA_VALIDATORS: dict[str, Callable[[re.Match[str]], bool]] = {
+    "Bearer Token": _validate_bearer_token,
+}
+
+
 def scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
     """Scan a single file for hardcoded secrets."""
     findings: list[Finding] = []
@@ -87,6 +121,10 @@ def scan_file_for_secrets(file_path: Path, content: str) -> list[Finding]:
             if pattern.search(line):
                 match = pattern.search(line)
                 matched_text = match.group() if match else ""
+
+                validator = _EXTRA_VALIDATORS.get(secret_name)
+                if validator and match and not validator(match):
+                    continue
 
                 # Skip if the matched secret itself looks like a placeholder
                 if any(placeholder in matched_text.lower() for placeholder in [

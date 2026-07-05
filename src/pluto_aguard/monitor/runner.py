@@ -10,6 +10,7 @@ Ingests OpenTelemetry traces or live agent output and detects:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -20,6 +21,13 @@ from pluto_aguard.models import AgentAction, AgentPolicy, ApprovalEvent, Finding
 console = Console()
 
 ParsedTraceEvent = AgentAction | ApprovalEvent
+
+# Word-boundary matching avoids false positives on substrings embedded in
+# larger identifiers, e.g. "created_at" (contains "create") or "postgres"
+# (contains "post").
+_WRITE_INDICATOR_PATTERN = re.compile(
+    r"\b(write|create|update|delete|insert|put|post)\b", re.IGNORECASE
+)
 
 
 def load_policy(policy_path: str | None) -> AgentPolicy | None:
@@ -198,9 +206,8 @@ def check_action_against_policy(
     if policy.max_permissions:
         max_perm = policy.max_permissions.get(tool, policy.max_permissions.get("*"))
         if max_perm and max_perm.lower() == "read":
-            write_indicators = ["write", "create", "update", "delete", "insert", "put", "post"]
-            args_str = json.dumps(action.tool_args).lower()
-            if any(w in args_str or w in tool for w in write_indicators):
+            args_str = json.dumps(action.tool_args)
+            if _WRITE_INDICATOR_PATTERN.search(args_str) or _WRITE_INDICATOR_PATTERN.search(tool):
                 violations.append(Finding(
                     id=f"DRIFT-PERM-ESCALATION-{tool}-T{action.turn}",
                     title=f"Permission escalation: '{action.tool_name}' exceeded READ access",
