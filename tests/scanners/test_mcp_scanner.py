@@ -290,3 +290,27 @@ class TestDirectoryScanner:
     def test_empty_directory(self, tmp_path: Path) -> None:
         findings = scan_directory(tmp_path)
         assert len(findings) == 0
+
+
+class TestRealisticMcpConfigSchema:
+    """Locks in the 'grounded in the real MCP schema' claim: a bare
+    claude_desktop_config.json (command/args/env/url only, no invented
+    permissions/tools-with-description fields) should still surface real
+    issues (secrets, transport, auth) but never the permission-wildcard or
+    tool-poisoning checks, since those require fields no real MCP client
+    config contains.
+    """
+
+    def test_bare_config_triggers_real_checks_only(self, tmp_path: Path) -> None:
+        fixture = Path(__file__).parent.parent.parent / "examples" / "claude_desktop_config.json"
+        config = tmp_path / "claude_desktop_config.json"
+        config.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+
+        findings = scan_directory(tmp_path)
+        categories = {f.category for f in findings}
+
+        assert "secrets" in categories
+        assert "transport" in categories
+        assert "authentication" in categories
+        assert "permissions" not in categories
+        assert "tool_poisoning" not in categories

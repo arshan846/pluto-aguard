@@ -1,5 +1,9 @@
 # Example: Secure Agent Configuration
 # This demonstrates best practices for agent security
+#
+# NOTE ON SCHEMA: as in insecure-agent-config.yaml, the `permissions`/`tools`
+# fields nested inside each mcpServers.* entry are AgentGuard-extended
+# metadata, not part of the MCP spec. See docs/config-schema.md.
 
 name: data-analyst-agent
 description: "Agent that queries databases and generates reports"

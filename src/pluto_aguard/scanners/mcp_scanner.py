@@ -3,6 +3,19 @@
 Scans MCP server configuration files for security vulnerabilities
 including over-permissioned tools, hardcoded secrets, insecure transports,
 and tool poisoning indicators.
+
+Schema note: most checks here (transport, auth, env secrets, dangerous
+packages, connection strings, context-safety heuristics) operate on fields
+that a real MCP client config actually has -- command/args/env, or
+url/headers for remote servers. `_check_server_permissions` and
+`_check_tool_definitions`, however, look for `permissions`/`scope`/`tools`
+(with a `description`) directly on a server entry -- fields that don't
+exist in a bare claude_desktop_config.json/.mcp.json. Those two checks only
+fire against configs that add this metadata themselves (e.g. an enterprise
+MCP gateway, or AgentGuard's own example fixtures) and are legitimately
+inert on a stock client config -- that's expected, not a gap. See
+docs/config-schema.md for the full breakdown and
+examples/claude_desktop_config.json for what a real config looks like.
 """
 
 from __future__ import annotations
@@ -200,7 +213,12 @@ def scan_mcp_config(file_path: Path, config: dict[str, Any]) -> list[Finding]:
 def _check_server_permissions(
     file_path: Path, server_name: str, config: dict[str, Any]
 ) -> list[Finding]:
-    """Check for over-permissioned server configurations."""
+    """Check for over-permissioned server configurations.
+
+    Extended-schema check: `permissions`/`scope`/`access`/`tools` are not
+    fields a bare MCP client config has on a server entry. See the module
+    docstring and docs/config-schema.md.
+    """
     findings: list[Finding] = []
 
     # Check for wildcard or overly broad permissions
@@ -369,7 +387,12 @@ def _check_server_auth(
 def _check_tool_definitions(
     file_path: Path, server_name: str, config: dict[str, Any]
 ) -> list[Finding]:
-    """Check tool definitions for poisoning indicators."""
+    """Check tool definitions for poisoning indicators.
+
+    Extended-schema check: a `tools` list with `description` fields on a
+    server entry is not part of a bare MCP client config -- see the module
+    docstring and docs/config-schema.md.
+    """
     findings: list[Finding] = []
 
     tools = config.get("tools", [])

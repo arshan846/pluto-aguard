@@ -130,6 +130,8 @@ CI flags: `--max-risk 50` / `--fail-on high` / `--format sarif`
 
 False positive? Suppress it via a `.aguard.yaml` file or an inline `# aguard-ignore` comment — see [docs/suppressions.md](docs/suppressions.md). Use `--no-suppress` to see every finding regardless of suppression rules.
 
+Not every check applies to every config: transport/auth/secrets checks work on any real `claude_desktop_config.json`, but the permission-wildcard and tool-poisoning checks look for metadata (`permissions`, `tools[].description`) that only exists in AgentGuard's own extended schema or in gateway configs that add it themselves — see [docs/config-schema.md](docs/config-schema.md) for exactly what's standard vs. extended, and [examples/claude_desktop_config.json](examples/claude_desktop_config.json) for a scan of a real, unmodified config.
+
 ### `aguard test`
 
 Tests 22 attack scenarios against your declared security policy. Reports what gets caught vs. what gets through. Pure policy coverage testing — no LLM needed.

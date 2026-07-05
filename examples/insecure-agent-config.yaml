@@ -1,5 +1,16 @@
 # Example: Insecure Agent Configuration
 # This is an intentionally vulnerable config for testing aguard scan
+#
+# NOTE ON SCHEMA: the top-level `tools` / `permissions` / `require_human_approval`
+# keys below are AgentGuard's own agent-config schema (consumed by
+# `whatif` / `evidence` / `monitor` / `baseline`), not part of the MCP spec.
+# The `permissions` and `tools` (with `description`) fields nested *inside*
+# each mcpServers.* entry are ALSO AgentGuard-extended metadata, added here
+# only to demonstrate the wildcard-permission and tool-poisoning checks — a
+# real claude_desktop_config.json / .mcp.json does not have these fields on
+# a server entry (just command/args/env or url/headers). See
+# examples/claude_desktop_config.json for what a real config looks like, and
+# docs/config-schema.md for the full breakdown of what's standard vs. extended.
 
 name: data-analyst-agent
 description: "Agent that queries databases and generates reports"
