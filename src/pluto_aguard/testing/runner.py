@@ -1,8 +1,10 @@
-"""Adversarial test runner for agent policies.
+"""Policy coverage linter for agent policies.
 
-Simulates attack scenarios against an agent's declared policy
-to identify which attacks would be caught vs which would succeed.
-No LLM or running agent needed — pure policy simulation.
+For each named attack scenario, checks whether the tool it names is in the
+policy's denied_tools or require_human_approval list -- via the same
+check_action_against_policy used by the live monitor. This is tool-name
+membership testing, not adversarial simulation: no prompt is executed, no
+LLM is involved, and scenario.attack_prompt is never read here.
 """
 
 from __future__ import annotations
@@ -31,7 +33,10 @@ def load_policy(policy_path: str) -> AgentPolicy:
 
 
 def simulate_attack(scenario: AttackScenario, policy: AgentPolicy) -> dict[str, Any]:
-    """Simulate a single attack scenario against a policy.
+    """Check one scenario's expected_tool_call against a policy's tool lists.
+
+    scenario.attack_prompt is documentation only and is not read here --
+    this is a tool-name lookup, not an evaluation of the attack narrative.
 
     Returns a dict with:
     - scenario: the attack scenario

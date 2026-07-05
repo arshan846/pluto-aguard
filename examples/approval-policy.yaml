@@ -1,0 +1,7 @@
+# Minimal policy isolating approval semantics -- no allowed_tools/denied_tools
+# restrictions, so the only findings that can fire are approval-related.
+# Used with examples/approval-reuse-attack.jsonl.
+name: data-analyst-agent
+
+require_human_approval:
+  - file_write

@@ -72,6 +72,7 @@ class AgentAction(BaseModel):
     tool_name: str | None = None
     tool_args: dict[str, Any] = Field(default_factory=dict)
     result_summary: str | None = None
+    call_id: str | None = None  # e.g. gen_ai.tool.call.id -- binds to a specific ApprovalEvent
     violations: list[Finding] = Field(default_factory=list)
 
 
@@ -94,6 +95,7 @@ class ApprovalEvent(BaseModel):
     approval_id: str | None = None
     approved_at: str | None = None
     expired: bool = False
+    call_id: str | None = None  # matches AgentAction.call_id for exact binding, if known
 
 
 class ScanResult(BaseModel):

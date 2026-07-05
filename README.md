@@ -14,7 +14,7 @@ MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrail
 | Capability | Scanners | **AgentGuard** |
 |---|---|---|
 | Detect secrets & misconfigs statically (no server execution) | 🟡 Varies | ✅ `aguard scan` |
-| Policy coverage testing (22 attack scenarios) | ❌ | ✅ `aguard test` |
+| Policy coverage linting (22 named attack scenarios) | ❌ | ✅ `aguard test` |
 | "What-if" risk impact before applying changes | ❌ | ✅ `aguard whatif` |
 | OWASP-inspired control coverage (20 controls) | ❌ | ✅ `aguard owasp` |
 | Launch readiness evidence packets | ❌ | ✅ `aguard evidence` |
@@ -103,7 +103,7 @@ See [docs/github-action-usage.md](docs/github-action-usage.md) for full options.
 | Command | What It Does | Maturity |
 |---|---|---|
 | `aguard scan` | Static analysis — secrets, misconfigs, unsafe AI code patterns | ✅ Stable |
-| `aguard test` | Policy coverage testing — 22 attack scenarios across 6 packs | ✅ Stable |
+| `aguard test` | Policy coverage linting — 22 named attack scenarios across 6 packs | ✅ Stable |
 | `aguard owasp` | OWASP-inspired control coverage report (20 controls) | ✅ Stable |
 | `aguard whatif` | Policy impact simulation — risk delta before applying changes | ✅ Stable |
 | `aguard evidence` | Launch readiness packet with approval checklist | 🔶 Beta |
@@ -134,7 +134,7 @@ Not every check applies to every config: transport/auth/secrets checks work on a
 
 ### `aguard test`
 
-Tests 22 attack scenarios against your declared security policy. Reports what gets caught vs. what gets through. Pure policy coverage testing — no LLM needed.
+Policy coverage linting, not adversarial testing: for each of 22 named attack scenarios, checks whether the tool it would invoke is in your policy's `denied_tools` or `require_human_approval` list. Reports what gets caught vs. what gets through. No LLM needed — nothing is executed and no prompt text is evaluated. A scenario's `attack_prompt` is documentation of the threat it represents, not an input this command interprets; two scenarios that name the same tool (e.g. `execute`) get the identical verdict regardless of how different the underlying attack is.
 
 > ⚠️ **This tests whether your *policy document* would block each attack — not whether your actual LLM agent would resist it.** Real agent resistance requires runtime testing against a live agent (planned for v1.2).
 
@@ -217,6 +217,8 @@ aguard monitor --trace-file traces.jsonl --policy policy.yaml
 
 Accepts real OTel GenAI semantic-convention traces (`gen_ai.tool.name`, `gen_ai.operation.name` — what OpenLIT and OTel-native LangChain instrumentation actually emit), this project's own OTel-shaped format, or a flat simple `{"tool_name": "X", "tool_args": {}}` format. See [docs/trace-ingestion.md](docs/trace-ingestion.md) and [examples/otel-genai-traces.jsonl](examples/otel-genai-traces.jsonl).
 
+Approvals are single-use — one approval authorizes exactly one matching call, not every future call to that tool — and, when both sides carry a timestamp, an approval recorded after the action it's supposed to cover is flagged as a `DRIFT-BACKDATED-APPROVAL`. See [docs/approval-semantics.md](docs/approval-semantics.md).
+
 ---
 
 ## How It Fits
@@ -269,7 +271,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, suppressions, GitHub Action docs
-├── tests/                      # 156 tests
+├── tests/                      # 161 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```

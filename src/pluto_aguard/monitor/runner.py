@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -100,6 +101,7 @@ def parse_trace_line(line: str, default_turn: int = 0) -> ParsedTraceEvent | Non
                     attrs.get("approval.approved_at", data.get("startTimeUnixNano", data.get("timestamp")))
                 ),
                 expired=_as_bool(attrs.get("approval.expired", attrs.get("expired", False))),
+                call_id=_extract_call_id(attrs),
             )
 
         return AgentAction(
@@ -109,6 +111,7 @@ def parse_trace_line(line: str, default_turn: int = 0) -> ParsedTraceEvent | Non
             tool_name=_extract_tool_name(attrs, data.get("name")),
             tool_args=_extract_tool_args(attrs),
             result_summary=attrs.get("result.summary"),
+            call_id=_extract_call_id(attrs),
         )
 
     action_type = data.get("action_type")
@@ -122,6 +125,7 @@ def parse_trace_line(line: str, default_turn: int = 0) -> ParsedTraceEvent | Non
             approval_id=data.get("approval_id"),
             approved_at=data.get("approved_at", data.get("timestamp")),
             expired=_as_bool(data.get("expired", False)),
+            call_id=data.get("call_id"),
         )
 
     if "action_type" in data or "tool_name" in data:
@@ -163,6 +167,12 @@ def _extract_tool_args(attrs: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _extract_call_id(attrs: dict[str, Any]) -> str | None:
+    """Resolve a tool-call ID, for exact action-to-approval binding."""
+    value = attrs.get("gen_ai.tool.call.id") or attrs.get("tool.call_id") or attrs.get("call_id")
+    return str(value) if value is not None else None
+
+
 def _infer_action_type(span_name: str, attrs: dict[str, Any] | None = None) -> str:
     """Infer action type from span name, or gen_ai.operation.name if present."""
     if attrs:
@@ -202,14 +212,85 @@ def _stringify(value: object) -> str | None:
     return str(value)
 
 
+def _parse_timestamp(value: str | None) -> float | None:
+    """Best-effort parse of a timestamp string into epoch seconds.
+
+    Handles OTel's integer epoch nanoseconds (as a string, since the model
+    stores timestamp as str) and ISO 8601 strings. Returns None if the
+    value is missing or not in a recognized format -- callers should treat
+    that as "can't compare" rather than an error.
+    """
+    if not value:
+        return None
+    if value.isdigit():
+        as_int = int(value)
+        if as_int >= 10**17:  # nanoseconds
+            return as_int / 1e9
+        if as_int >= 10**14:  # microseconds
+            return as_int / 1e6
+        if as_int >= 10**11:  # milliseconds
+            return as_int / 1e3
+        return float(as_int)  # seconds
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _approval_is_backdated(approval: ApprovalEvent, action: AgentAction) -> bool:
+    """True if the approval's timestamp is after the action it's covering.
+
+    A valid approval must precede the action it authorizes. If either
+    timestamp is missing or unparseable, this returns False rather than
+    guessing -- silence here is preferable to a false positive.
+    """
+    approved_at = _parse_timestamp(approval.approved_at)
+    action_at = _parse_timestamp(action.timestamp)
+    if approved_at is None or action_at is None:
+        return False
+    return approved_at > action_at
+
+
+def _consume_matching_approval(
+    tool: str,
+    action: AgentAction,
+    approvals: dict[str, list[ApprovalEvent]],
+) -> ApprovalEvent | None:
+    """Pop and return the approval that authorizes this specific action.
+
+    Single-use: a consumed approval is removed so it can't silently bless
+    every subsequent call to the same tool. Prefers an exact call_id match
+    (the strongest binding a trace can offer); otherwise falls back to the
+    oldest still-pending approval for the tool (FIFO), which is still
+    stronger than the old "any non-expired approval matches forever"
+    behavior since it's consumed on use.
+    """
+    queue = approvals.get(tool)
+    if not queue:
+        return None
+
+    if action.call_id:
+        for index, candidate in enumerate(queue):
+            if candidate.call_id and candidate.call_id == action.call_id:
+                return queue.pop(index)
+        return None
+
+    return queue.pop(0)
+
+
 def check_action_against_policy(
     action: AgentAction,
     policy: AgentPolicy,
-    approvals: dict[str, ApprovalEvent] | None = None,
+    approvals: dict[str, list[ApprovalEvent]] | None = None,
 ) -> list[Finding]:
-    """Check a single agent action against the declared policy."""
+    """Check a single agent action against the declared policy.
+
+    approvals is a mutable queue of pending approvals per tool name, keyed
+    lowercase. A matched approval is consumed (removed) here -- see
+    _consume_matching_approval.
+    """
     violations: list[Finding] = []
-    approvals = approvals or {}
+    approvals = approvals if approvals is not None else {}
 
     if not action.tool_name:
         return violations
@@ -248,7 +329,7 @@ def check_action_against_policy(
         ))
 
     if tool in approval_required:
-        approval = approvals.get(tool)
+        approval = _consume_matching_approval(tool, action, approvals)
         if approval and approval.expired:
             violations.append(Finding(
                 id=f"DRIFT-EXPIRED-APPROVAL-{tool}-T{action.turn}",
@@ -262,8 +343,22 @@ def check_action_against_policy(
                 category="drift",
                 owasp_id="MCP05:2025",
             ))
-        elif approvals and not approval:
-            approved_tools = ", ".join(sorted(a.tool_name for a in approvals.values()))
+        elif approval and _approval_is_backdated(approval, action):
+            violations.append(Finding(
+                id=f"DRIFT-BACKDATED-APPROVAL-{tool}-T{action.turn}",
+                title=f"Approval for '{action.tool_name}' recorded after the action ran",
+                description=(
+                    f"At turn {action.turn}, the agent called '{action.tool_name}' at "
+                    f"{action.timestamp}, but the matching approval is timestamped "
+                    f"{approval.approved_at} -- after the action. Either the trace was "
+                    "reordered, or the action executed before approval was actually granted."
+                ),
+                severity=Severity.CRITICAL,
+                category="drift",
+                owasp_id="MCP05:2025",
+            ))
+        elif approval is None and any(approvals.values()):
+            approved_tools = ", ".join(sorted({a.tool_name for queue in approvals.values() for a in queue}))
             violations.append(Finding(
                 id=f"DRIFT-MISMATCHED-APPROVAL-{tool}-T{action.turn}",
                 title=f"Mismatched approval for tool '{action.tool_name}'",
@@ -276,13 +371,15 @@ def check_action_against_policy(
                 category="drift",
                 owasp_id="MCP05:2025",
             ))
-        elif not approval:
+        elif approval is None:
             violations.append(Finding(
                 id=f"DRIFT-NO-APPROVAL-{tool}-T{action.turn}",
                 title=f"Tool '{action.tool_name}' used without human approval",
                 description=(
                     f"At turn {action.turn}, the agent called '{action.tool_name}' which "
-                    "requires human-in-the-loop approval, but no approval record was found."
+                    "requires human-in-the-loop approval, but no approval record was found. "
+                    "Note: each approval authorizes exactly one matching call -- if this tool "
+                    "was already approved earlier, that approval was already consumed."
                 ),
                 severity=Severity.HIGH,
                 category="drift",
@@ -316,7 +413,7 @@ def run_monitor(
 ) -> list[Finding]:
     """Run the behavioral monitor on agent traces."""
     policy = load_policy(policy_path)
-    approvals: dict[str, ApprovalEvent] = {}
+    approvals: dict[str, list[ApprovalEvent]] = {}
     all_violations: list[Finding] = []
 
     console.print("\n📡 [bold]Monitoring agent behavior...[/bold]\n")
@@ -351,7 +448,7 @@ def run_monitor(
 def _process_trace_lines(
     lines: list[str] | object,
     policy: AgentPolicy | None,
-    approvals: dict[str, ApprovalEvent],
+    approvals: dict[str, list[ApprovalEvent]],
     all_violations: list[Finding],
 ) -> None:
     """Process a stream of trace lines and collect policy violations."""
@@ -369,7 +466,7 @@ def _process_trace_lines(
         _print_action(event)
 
         if isinstance(event, ApprovalEvent):
-            approvals[event.tool_name.lower()] = event
+            approvals.setdefault(event.tool_name.lower(), []).append(event)
             continue
 
         turn_counter += 1

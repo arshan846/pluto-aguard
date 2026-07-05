@@ -1,8 +1,10 @@
-"""Built-in attack packs for adversarial policy testing.
+"""Built-in attack packs for policy coverage linting.
 
-Each attack pack contains scenarios that simulate what an attacker
-would try to get an agent to do. The test harness checks whether
-the agent's declared policy would catch each attack.
+Each scenario documents a realistic attack narrative, but the check itself
+is simpler than "adversarial testing" implies: it looks up whether
+expected_tool_call is in the policy's denied_tools or
+require_human_approval list -- see testing/runner.py:simulate_attack. No
+prompt is executed, sent to an LLM, or evaluated in any way.
 """
 
 from __future__ import annotations
@@ -12,12 +14,16 @@ from dataclasses import dataclass, field
 
 @dataclass
 class AttackScenario:
-    """A single adversarial test scenario."""
+    """A single named policy-coverage scenario."""
 
     id: str
     name: str
     description: str
-    attack_prompt: str  # What the attacker would say
+    # Documents the attack narrative for a human reader; not evaluated by
+    # the linter itself, which only checks expected_tool_call against the
+    # policy's tool lists. Two scenarios with the same expected_tool_call
+    # get an identical verdict no matter how different attack_prompt is.
+    attack_prompt: str
     expected_tool_call: str  # Tool the agent would try to invoke
     expected_tool_args: dict = field(default_factory=dict)
     category: str = ""

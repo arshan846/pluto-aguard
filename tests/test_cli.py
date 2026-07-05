@@ -231,6 +231,16 @@ class TestMonitorCommand:
         assert result.exit_code == 0
         assert "denied tool 'execute'" in result.output
 
+    def test_monitor_catches_reused_approval(self, runner: CliRunner) -> None:
+        """One approval must not silently bless a second call to the same
+        tool -- see examples/approval-reuse-attack.jsonl."""
+        trace_file = EXAMPLES_DIR / "approval-reuse-attack.jsonl"
+        policy_file = EXAMPLES_DIR / "approval-policy.yaml"
+        assert trace_file.exists()
+        result = runner.invoke(main, ["monitor", "--trace-file", str(trace_file), "--policy", str(policy_file)])
+        assert result.exit_code == 0
+        assert "without human approval" in result.output
+
     def test_monitor_missing_both(self, runner: CliRunner) -> None:
         # No trace file and no live flag — should still run (may show help or empty)
         result = runner.invoke(main, ["monitor"])

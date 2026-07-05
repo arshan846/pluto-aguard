@@ -172,7 +172,7 @@ class TestPolicyChecker:
         violations = check_action_against_policy(
             action,
             self.policy,
-            approvals={"file_write": ApprovalEvent(tool_name="file_write", approved_by="alice")},
+            approvals={"file_write": [ApprovalEvent(tool_name="file_write", approved_by="alice")]},
         )
         assert not any("approval" in v.title.lower() for v in violations)
 
@@ -188,7 +188,7 @@ class TestPolicyChecker:
         violations = check_action_against_policy(
             action,
             self.policy,
-            approvals={"file_write": ApprovalEvent(tool_name="file_write", expired=True)},
+            approvals={"file_write": [ApprovalEvent(tool_name="file_write", expired=True)]},
         )
         assert any("expired approval" in v.title.lower() for v in violations)
 
@@ -204,9 +204,70 @@ class TestPolicyChecker:
         violations = check_action_against_policy(
             action,
             self.policy,
-            approvals={"deploy": ApprovalEvent(tool_name="deploy", approved_by="alice")},
+            approvals={"deploy": [ApprovalEvent(tool_name="deploy", approved_by="alice")]},
         )
         assert any("mismatched approval" in v.title.lower() for v in violations)
+
+    def test_approval_is_single_use(self) -> None:
+        """One approval must not bless every subsequent call to the same tool."""
+        approvals: dict[str, list[ApprovalEvent]] = {
+            "file_write": [ApprovalEvent(tool_name="file_write", approved_by="alice")]
+        }
+        first_call = AgentAction(turn=1, action_type="tool_call", tool_name="file_write", tool_args={})
+        second_call = AgentAction(turn=2, action_type="tool_call", tool_name="file_write", tool_args={})
+
+        first_violations = check_action_against_policy(first_call, self.policy, approvals=approvals)
+        assert not any("approval" in v.title.lower() for v in first_violations)
+
+        second_violations = check_action_against_policy(second_call, self.policy, approvals=approvals)
+        assert any("without human approval" in v.title.lower() for v in second_violations)
+
+    def test_call_id_binds_exact_approval(self) -> None:
+        """An action referencing a specific call_id should consume the
+        matching approval even if it isn't first in the queue."""
+        approvals: dict[str, list[ApprovalEvent]] = {
+            "file_write": [
+                ApprovalEvent(tool_name="file_write", approved_by="alice", call_id="call_A"),
+                ApprovalEvent(tool_name="file_write", approved_by="bob", call_id="call_B"),
+            ]
+        }
+        action_b = AgentAction(
+            turn=1, action_type="tool_call", tool_name="file_write", tool_args={}, call_id="call_B"
+        )
+        violations = check_action_against_policy(action_b, self.policy, approvals=approvals)
+        assert not any("approval" in v.title.lower() for v in violations)
+        # call_A's approval must still be pending -- only call_B's was consumed
+        assert len(approvals["file_write"]) == 1
+        assert approvals["file_write"][0].call_id == "call_A"
+
+    def test_backdated_approval_detected(self) -> None:
+        """An approval timestamped after the action it's supposed to cover
+        indicates a reordered trace or an action that ran before approval."""
+        approvals: dict[str, list[ApprovalEvent]] = {
+            "file_write": [
+                ApprovalEvent(tool_name="file_write", approved_by="alice", approved_at="2026-01-01T12:00:00Z")
+            ]
+        }
+        action = AgentAction(
+            turn=1,
+            action_type="tool_call",
+            tool_name="file_write",
+            tool_args={},
+            timestamp="2026-01-01T11:00:00Z",
+        )
+        violations = check_action_against_policy(action, self.policy, approvals=approvals)
+        assert any("recorded after the action ran" in v.title.lower() for v in violations)
+        assert any(v.severity == Severity.CRITICAL for v in violations)
+
+    def test_missing_timestamps_not_flagged_as_backdated(self) -> None:
+        """Without parseable timestamps on both sides, don't guess -- no
+        false-positive backdated finding."""
+        approvals: dict[str, list[ApprovalEvent]] = {
+            "file_write": [ApprovalEvent(tool_name="file_write", approved_by="alice")]
+        }
+        action = AgentAction(turn=1, action_type="tool_call", tool_name="file_write", tool_args={})
+        violations = check_action_against_policy(action, self.policy, approvals=approvals)
+        assert not any("backdated" in v.id.lower() for v in violations)
 
     def test_allowed_tool_no_violations(self) -> None:
         line = json.dumps({

@@ -15,7 +15,7 @@ from pluto_aguard import __version__
 if sys.platform == "win32":
     for _stream in (sys.stdout, sys.stderr):
         try:
-            _stream.reconfigure(encoding="utf-8", errors="replace")
+            _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
         except (AttributeError, ValueError):
             pass
 
@@ -151,14 +151,15 @@ def evidence(path: str, config: str | None, policy: str | None, output: str) -> 
 )
 @click.option("--fail-on-miss", is_flag=True, help="Exit with code 1 if any attacks are not caught by policy")
 def test(policy: str, attack_pack: str, fail_on_miss: bool) -> None:
-    """🎯 Test policy coverage against attack scenarios.
+    """🎯 Policy coverage linting against 22 named attack scenarios.
 
-    Tests 22 attack scenarios against the agent's declared security
-    policy to check what gets blocked vs. what gets through.
-    Pure policy testing — no LLM or running agent needed.
+    For each scenario, checks whether the tool it would invoke is in your
+    policy's denied_tools or require_human_approval list -- no LLM or
+    running agent needed, and no prompt text is executed or evaluated.
 
-    Note: This tests whether your *policy* would block each attack,
-    not whether your actual LLM agent would resist it.
+    Note: This tests whether your *policy document* would block each
+    attack by tool name, not whether your actual LLM agent would resist
+    it. Two scenarios naming the same tool get the identical verdict.
     """
     from pluto_aguard.testing.runner import run_test
 

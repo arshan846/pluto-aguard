@@ -1,0 +1,3 @@
+{"turn": 1, "action_type": "approval", "tool_name": "file_write", "approved_by": "alice", "approval_id": "appr-1"}
+{"turn": 2, "action_type": "tool_call", "tool_name": "file_write", "tool_args": {"path": "report1.csv"}}
+{"turn": 3, "action_type": "tool_call", "tool_name": "file_write", "tool_args": {"path": "report2.csv"}}
