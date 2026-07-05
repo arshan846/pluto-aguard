@@ -80,7 +80,7 @@ We scanned **1,200 real MCP configs** from public GitHub repos (1,159 unique pro
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.2
+  uses: arpitha-dhanapathi/pluto-aguard@v0.9.3
   with:
     path: '.'
     max-risk: '50'
@@ -171,18 +171,22 @@ $ aguard owasp ./my-project/
 
 ### `aguard whatif`
 
-Simulates policy changes and shows risk score impact *before* applying them.
+Simulates policy changes and shows risk score impact *before* applying them. Output below is the real, reproducible result of running `aguard whatif --config examples/insecure-agent-config.yaml`:
 
 ```
-$ aguard whatif --config agent-config.yaml
+$ aguard whatif --config examples/insecure-agent-config.yaml
 
   Current Risk Score: 100/100
 
-  ✅ Restrict SQL to SELECT-only              → 68  (↓ 17%)
-  ✅ Add human-in-the-loop for file ops       → 54  (↓ 34%)
-  ✅ Add rate limits + timeout                → 48  (↓ 41%)
+  ✅ Restrict SQL tool to SELECT-only queries               → 76  (↓ 24%)
+  ✅ Add human-in-the-loop for file operations              → 99  (↓ 2%)
+  ✅ Rotate API keys to ephemeral tokens                    → 88  (↓ 12%)
+  ✅ Add rate limits (100 calls/minute) and timeout (5 min) → 77  (↓ 23%)
+  ✅ Restrict outbound network access to allowlisted domains → 88  (↓ 12%)
+  ✅ Convert from implicit-allow to explicit tool allowlist → 88  (↓ 12%)
+  ✅ Run agent in sandboxed execution environment           → 88  (↓ 12%)
 
-  💡 Apply all 3 → Risk drops to 38 (↓54%)
+  💡 Apply all 7 → Risk drops to 5 (↓95%)
 ```
 
 ### `aguard evidence`
@@ -260,7 +264,7 @@ pluto-aguard/
 │   └── reports/                # HTML + SARIF output
 ├── examples/                   # Demo project + configs + traces
 ├── docs/                       # Risk scoring, OWASP matrix, GitHub Action docs
-├── tests/                      # 135 tests
+├── tests/                      # 139 tests
 ├── action.yml                  # GitHub Action
 └── SECURITY.md
 ```
