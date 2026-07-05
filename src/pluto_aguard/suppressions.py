@@ -40,7 +40,7 @@ from pluto_aguard.models import Finding
 
 _IGNORE_FILENAMES = (".aguard.yaml", ".aguard.yml")
 
-_INLINE_MARKER = re.compile(r"aguard-ignore(?::\s*([\w,\-]+))?", re.IGNORECASE)
+_INLINE_MARKER = re.compile(r"aguard-ignore(?::\s*([\w,.\-]+))?", re.IGNORECASE)
 
 
 @dataclass

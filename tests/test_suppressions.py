@@ -106,6 +106,20 @@ class TestInlineSuppression:
         assert [f.id for f in result.kept] == ["SECRET-GENERIC-SECRET-app.py-L1"]
         assert len(result.suppressed_inline) == 1
 
+    def test_scoped_marker_handles_dotted_finding_id(self, tmp_path: Path) -> None:
+        """Per-instance finding IDs embed the filename (e.g. config.yaml),
+        which contains a dot -- the inline scoping regex must not truncate
+        the prefix at the first dot."""
+        source = tmp_path / "config.yaml"
+        source.write_text(
+            'secret: "abc123def456"  # aguard-ignore: SECRET-GENERIC-SECRET-config.yaml-L1\n',
+            encoding="utf-8",
+        )
+        finding = _finding("SECRET-GENERIC-SECRET-config.yaml-L1", file_path=str(source), line_number=1)
+        result = apply_suppressions([finding], tmp_path)
+        assert result.kept == []
+        assert len(result.suppressed_inline) == 1
+
     def test_no_marker_on_line_is_not_suppressed(self, tmp_path: Path) -> None:
         source = tmp_path / "app.py"
         source.write_text('api_key = "sk-live-abc123"\n', encoding="utf-8")
