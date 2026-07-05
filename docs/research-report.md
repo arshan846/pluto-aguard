@@ -54,7 +54,7 @@ For each result, we downloaded the raw file, validated it was a parseable MCP co
 
 ### Scanning
 
-We scanned every config using [Pluto AgentGuard](https://github.com/arpitha-dhanapathi/pluto-aguard) (`pluto-aguard` on PyPI), an open-source static security scanner for MCP configurations. The scanner checks for:
+We scanned every config using [Pluto AgentGuard](https://github.com/arshan846/pluto-aguard) (`pluto-aguard` on PyPI), an open-source static security scanner for MCP configurations. The scanner checks for:
 
 1. **Hardcoded secrets** — API keys, passwords, tokens, and credentials in environment variables
 2. **Dangerous server packages** — Servers with filesystem access, browser control, shell execution, or database access
@@ -290,7 +290,7 @@ aguard scan . --format json
 aguard owasp .
 ```
 
-**Scanner:** [github.com/arpitha-dhanapathi/pluto-aguard](https://github.com/arpitha-dhanapathi/pluto-aguard)
+**Scanner:** [github.com/arshan846/pluto-aguard](https://github.com/arshan846/pluto-aguard)
 **PyPI:** [pypi.org/project/pluto-aguard](https://pypi.org/project/pluto-aguard/)
 
 The collection and scanning scripts, raw metadata, and aggregated results from this study will be published separately. Individual config files and repository names are not published to avoid exposing specific developers' credentials.
@@ -315,11 +315,11 @@ The collection and scanning scripts, raw metadata, and aggregated results from t
 
 ## About
 
-This research was conducted by [Arpitha Dhanapathi](https://github.com/arpitha-dhanapathi) using [Pluto AgentGuard](https://github.com/arpitha-dhanapathi/pluto-aguard), an open-source, OWASP-inspired security scanner for AI agent configurations.
+This research was conducted by [Arpitha Dhanapathi](https://github.com/arshan846) using [Pluto AgentGuard](https://github.com/arshan846/pluto-aguard), an open-source, OWASP-inspired security scanner for AI agent configurations.
 
 Pluto AgentGuard scans MCP configs statically (no server execution, no API keys required), tests security policies against 22 attack scenarios, and generates compliance evidence for AI governance. It runs offline, in CI/CD, or as a GitHub Action.
 
-*Have questions or feedback? Open an issue on [GitHub](https://github.com/arpitha-dhanapathi/pluto-aguard/issues) or reach out on [LinkedIn](https://linkedin.com/in/arpitha-dhanapathi).*
+*Have questions or feedback? Open an issue on [GitHub](https://github.com/arshan846/pluto-aguard/issues) or reach out on [LinkedIn](https://linkedin.com/in/arpitha-dhanapathi).*
 
 ---
 

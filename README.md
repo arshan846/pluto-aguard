@@ -2,7 +2,7 @@
 
 **Security launch gate for AI agents. Other tools scan configs — AgentGuard tests your policy against attack scenarios, simulates risk impact, maps results to an OWASP-inspired control framework, and generates launch evidence.**
 
-[![CI](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arpitha-dhanapathi/pluto-aguard/actions/workflows/ci.yml)
+[![CI](https://github.com/arshan846/pluto-aguard/actions/workflows/ci.yml/badge.svg)](https://github.com/arshan846/pluto-aguard/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/pluto-aguard)](https://pypi.org/project/pluto-aguard/)
@@ -29,7 +29,7 @@ MCP security scanners are multiplying fast (Snyk agent-scan, Invariant guardrail
 pip install pluto-aguard
 
 # Clone for examples
-git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git && cd pluto-aguard
+git clone https://github.com/arshan846/pluto-aguard.git && cd pluto-aguard
 
 # Scan a realistic insecure AI project — finds 18 real issues
 aguard scan ./examples/demo-agent-project/
@@ -80,7 +80,7 @@ We scanned **1,200 real MCP configs** from public GitHub repos (1,159 unique pro
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.3
+  uses: arshan846/pluto-aguard@v0.9.4
   with:
     path: '.'
     max-risk: '50'

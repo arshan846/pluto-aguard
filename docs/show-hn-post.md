@@ -16,7 +16,7 @@ I built an open-source static security scanner for MCP (Model Context Protocol) 
 
 ## What I built
 
-[Pluto AgentGuard](https://github.com/arpitha-dhanapathi/pluto-aguard) (`pip install pluto-aguard`) — a static-only MCP security scanner. Key design choice: it **never executes MCP servers**. Unlike Snyk's agent-scan (which connects to servers to read tool descriptions), this is purely static analysis. Safer to run on untrusted configs, but shallower — it can't detect prompt injection in tool descriptions.
+[Pluto AgentGuard](https://github.com/arshan846/pluto-aguard) (`pip install pluto-aguard`) — a static-only MCP security scanner. Key design choice: it **never executes MCP servers**. Unlike Snyk's agent-scan (which connects to servers to read tool descriptions), this is purely static analysis. Safer to run on untrusted configs, but shallower — it can't detect prompt injection in tool descriptions.
 
 ```bash
 pip install pluto-aguard
@@ -46,8 +46,8 @@ It checks for: hardcoded secrets, dangerous server packages (filesystem, browser
 
 ## Links
 
-- **GitHub:** https://github.com/arpitha-dhanapathi/pluto-aguard
+- **GitHub:** https://github.com/arshan846/pluto-aguard
 - **PyPI:** https://pypi.org/project/pluto-aguard/
-- **Full research report:** https://github.com/arpitha-dhanapathi/pluto-aguard/blob/master/docs/research-report.md
+- **Full research report:** https://github.com/arshan846/pluto-aguard/blob/master/docs/research-report.md
 
 Happy to answer questions. This is a solo side project — feedback on both the scanner and the research methodology is welcome.

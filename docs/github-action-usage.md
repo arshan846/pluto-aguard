@@ -6,7 +6,7 @@ Add to any workflow:
 
 ```yaml
 - name: Agent Security Gate
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.2
+  uses: arshan846/pluto-aguard@v0.9.4
   with:
     path: '.'
     max-risk: '50'
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run AgentGuard
-       uses: arpitha-dhanapathi/pluto-aguard@v0.9.2
+       uses: arshan846/pluto-aguard@v0.9.4
         with:
           path: '.'
           max-risk: '50'
@@ -46,7 +46,7 @@ jobs:
 
 ```yaml
 - name: Run AgentGuard with policy tests
-  uses: arpitha-dhanapathi/pluto-aguard@v0.9.2
+  uses: arshan846/pluto-aguard@v0.9.4
   with:
     path: '.'
     max-risk: '50'

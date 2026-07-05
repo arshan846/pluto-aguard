@@ -2,6 +2,37 @@
 
 All notable changes to Pluto AgentGuard will be documented in this file.
 
+## [0.9.4] — 2026-07-05
+
+### Fixed
+- **monitor**: Read-only permission escalation check used unbounded substring matching (`"create" in "created_at"`, `"post" in "postgres"`), flagging benign SQL and connection strings as CRITICAL. Now uses word-boundary matching.
+- **scan**: Bearer-token secret detection flagged any prose sentence containing the word "bearer" (e.g. "Bearer authentication is a common scheme") as a HIGH finding. Now requires length + Shannon entropy consistent with a real token.
+- **whatif**: `calculate_permission_risk_score` never read `network.egress`, `runtime.sandbox`, `auth.token_type`, or `permission_model` — 4 of 7 built-in policies had zero effect on the reported score regardless of what they changed. The scorer's denominator also shrank in lockstep with the numerator when a control was fixed, so the ratio could never move once saturated at 100%. Both fixed; all 7 built-in policies now produce real, distinct deltas. Removed the `risk_reduction` fields on `BUILTIN_POLICIES`, which were never read anywhere.
+- **cli**: `aguard --help` (and every command) crashed with `UnicodeEncodeError` on Windows terminals using a legacy codepage (cp1252) — this is Windows' actual default for many setups, not an edge case. Fixed by reconfiguring stdout/stderr to UTF-8 at import time (Click processes `--help`/`--version` before any command code runs).
+- **monitor**: `gen_ai.*` (the real OTel GenAI semantic convention used by OpenLIT, OTel-native LangChain instrumentation, and Traceloop) was not recognized — only this project's own ad-hoc `tool.name`/`tool.args` attributes were. A genuine `gen_ai.*` trace would also have hit two more bugs: integer `startTimeUnixNano` timestamps crashed with a pydantic `ValidationError` (the model expects a string), and a trace lacking the invented `turn` field crashed the flat-format parser outright. All three fixed; `gen_ai.*` is now the primary recognized namespace, with the old names kept as fallback.
+- **monitor**: approvals were keyed by tool name only, with no consumption logic — one approval event silently authorized every subsequent call to that tool for the rest of the trace, and there was no check that an approval actually preceded the action it covers (only that it appeared earlier in file order). Approvals are now a single-use, per-tool FIFO queue; an exact `call_id` match (e.g. `gen_ai.tool.call.id`) is preferred when available; and an approval timestamped after its action now raises `DRIFT-BACKDATED-APPROVAL` (CRITICAL) when both timestamps are parseable.
+- **reports**: HTML and SARIF report generators hardcoded the version string and repo URL as string literals instead of reading `__version__` — every prior release had to remember to update these by hand (and several didn't). Now interpolated dynamically.
+- **release**: repo URLs (README, pyproject.toml, generated reports, docs) still pointed at the pre-rename GitHub username; GitHub Action pins were two releases behind the actual PyPI version, meaning `uses: .../pluto-aguard@v0.9.2` installed a build that predates all of the above fixes.
+
+### Added
+- `.aguard.yaml` project-level ignore rules (by finding ID, ID prefix, category, or path glob) and inline `# aguard-ignore` comments for suppressing specific false positives, with `--no-suppress` to bypass. See `docs/suppressions.md`.
+- `examples/claude_desktop_config.json`: a fixture built entirely from real MCP client config fields, demonstrating that `aguard scan` finds secrets/transport/auth issues but never the permission-wildcard or tool-poisoning checks on a config that doesn't declare that (non-standard) metadata itself. See `docs/config-schema.md` for what's MCP-standard vs. this project's own extended schema.
+- `examples/otel-genai-traces.jsonl` and `docs/trace-ingestion.md` documenting the three trace formats `aguard monitor` accepts.
+- `examples/approval-reuse-attack.jsonl` and `docs/approval-semantics.md` documenting single-use consumption, `call_id` binding, and backdated-approval detection.
+
+### Changed
+- `aguard test` reframed, in its help text and the README, as policy coverage linting (tool-name membership in `denied_tools`/`require_human_approval`) rather than adversarial testing — `attack_prompt` is documentation for a human reader and was never evaluated; two scenarios naming the same tool always got an identical verdict. No behavior changed, only how it's described.
+- Deleted `rules/owasp_mcp_top10.yaml`: unreferenced anywhere in the codebase, duplicating (and drifting from) `controls/registry.py`, which is the actual runtime source of truth for OWASP control mapping.
+- 161 tests passing (up from 135).
+
+## [0.9.3] — 2026-06-17
+
+### Fixed
+- Findings re-tiered to be grounded in the MCP specification rather than an invented policy schema.
+- Scan results and README claims corrected to remove inflated numbers.
+- Removed accidentally committed test output.
+- Version bumped to 0.9.3 (and the corresponding CLI version-flag test assertion).
+
 ## [0.9.2] — 2026-05-31
 
 ### Fixed
@@ -70,5 +101,7 @@ All notable changes to Pluto AgentGuard will be documented in this file.
 - OWASP control registry with 20 controls mapped
 - Apache-2.0 license
 
+[0.9.4]: https://github.com/arshan846/pluto-aguard/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/arshan846/pluto-aguard/compare/v0.9.2...v0.9.3
 [0.9.1]: https://github.com/arpitha-dhanapathi/pluto-aguard/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/arpitha-dhanapathi/pluto-aguard/releases/tag/v0.9.0

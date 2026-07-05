@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pluto-aguard"
-version = "0.9.3"
+version = "0.9.4"
 description = "OWASP-inspired launch gate for AI agents — scan MCP configs, test policies, simulate risk, and generate compliance evidence. Static-only, offline, no API keys."
 readme = "README.md"
 license = "Apache-2.0"
@@ -48,9 +48,9 @@ monitor = [
 aguard = "pluto_aguard.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/arpitha-dhanapathi/pluto-aguard"
-Repository = "https://github.com/arpitha-dhanapathi/pluto-aguard"
-Issues = "https://github.com/arpitha-dhanapathi/pluto-aguard/issues"
+Homepage = "https://github.com/arshan846/pluto-aguard"
+Repository = "https://github.com/arshan846/pluto-aguard"
+Issues = "https://github.com/arshan846/pluto-aguard/issues"
 
 [tool.ruff]
 target-version = "py310"

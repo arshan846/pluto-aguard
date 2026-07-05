@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from pluto_aguard import __version__
 from pluto_aguard.cli import main
 
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
@@ -26,7 +27,7 @@ class TestVersion:
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
         assert "pluto-aguard" in result.output
-        assert "0.9.3" in result.output
+        assert __version__ in result.output
 
     def test_help(self, runner: CliRunner) -> None:
         result = runner.invoke(main, ["--help"])

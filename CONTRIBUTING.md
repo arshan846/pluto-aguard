@@ -13,7 +13,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repository
-git clone https://github.com/arpitha-dhanapathi/pluto-aguard.git
+git clone https://github.com/arshan846/pluto-aguard.git
 cd pluto-aguard
 
 # Create and activate a virtual environment
@@ -52,7 +52,7 @@ ruff check src/ --fix
 
 ### Reporting Bugs
 
-Open an [issue](https://github.com/arpitha-dhanapathi/pluto-aguard/issues) with:
+Open an [issue](https://github.com/arshan846/pluto-aguard/issues) with:
 - Steps to reproduce
 - Expected vs actual behavior
 - Python version and OS

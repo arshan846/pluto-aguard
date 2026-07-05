@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-I built [Pluto AgentGuard](https://github.com/arpitha-dhanapathi/pluto-aguard), an open-source MCP security scanner, and ran it against 1,200 real MCP server configurations from public GitHub repos.
+I built [Pluto AgentGuard](https://github.com/arshan846/pluto-aguard), an open-source MCP security scanner, and ran it against 1,200 real MCP server configurations from public GitHub repos.
 
 The key finding: **13% expose remote endpoints with zero authentication.**
 
@@ -109,7 +109,7 @@ Or scan a single config:
 pluto-aguard scan ~/.cursor/mcp.json
 ```
 
-[GitHub → pluto-aguard](https://github.com/arpitha-dhanapathi/pluto-aguard) | Open source, MIT licensed.
+[GitHub → pluto-aguard](https://github.com/arshan846/pluto-aguard) | Open source, MIT licensed.
 
 ---
 

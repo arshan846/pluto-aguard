@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from pluto_aguard import __version__
 from pluto_aguard.models import ScanResult, Severity
 
 SARIF_SEVERITY_MAP = {
@@ -68,8 +69,8 @@ def generate_sarif(result: ScanResult) -> str:
                 "tool": {
                     "driver": {
                         "name": "pluto-aguard",
-                        "version": "0.9.3",
-                        "informationUri": "https://github.com/arpitha-dhanapathi/pluto-aguard",
+                        "version": __version__,
+                        "informationUri": "https://github.com/arshan846/pluto-aguard",
                         "rules": rules,
                     }
                 },
