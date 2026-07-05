@@ -22,7 +22,10 @@ from turn 1 was already spent. See
 verified end-to-end with `aguard monitor --trace-file examples/approval-reuse-attack.jsonl --policy examples/approval-policy.yaml`.
 
 If multiple approvals for the same tool are pending, they're consumed
-oldest-first (FIFO).
+oldest-first (FIFO) -- with one exception: a non-expired approval is always
+preferred over an expired one, even if the expired one is older. An expired
+record sitting ahead of a valid one in the queue doesn't preempt the valid
+one; expiry only surfaces once there's nothing usable left to consume.
 
 ## Exact binding via call_id
 

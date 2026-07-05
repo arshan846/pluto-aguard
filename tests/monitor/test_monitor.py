@@ -240,6 +240,26 @@ class TestPolicyChecker:
         assert len(approvals["file_write"]) == 1
         assert approvals["file_write"][0].call_id == "call_A"
 
+    def test_valid_approval_preferred_over_expired_ahead_of_it(self) -> None:
+        """An expired approval sitting ahead of a valid one in FIFO order
+        must not preempt the valid one -- only surface once nothing usable
+        is left."""
+        approvals: dict[str, list[ApprovalEvent]] = {
+            "file_write": [
+                ApprovalEvent(tool_name="file_write", approved_by="alice", expired=True),
+                ApprovalEvent(tool_name="file_write", approved_by="bob"),
+            ]
+        }
+        first_call = AgentAction(turn=1, action_type="tool_call", tool_name="file_write", tool_args={})
+        first_violations = check_action_against_policy(first_call, self.policy, approvals=approvals)
+        assert not any("approval" in v.title.lower() for v in first_violations)
+        assert len(approvals["file_write"]) == 1
+        assert approvals["file_write"][0].expired
+
+        second_call = AgentAction(turn=2, action_type="tool_call", tool_name="file_write", tool_args={})
+        second_violations = check_action_against_policy(second_call, self.policy, approvals=approvals)
+        assert any("expired approval" in v.title.lower() for v in second_violations)
+
     def test_backdated_approval_detected(self) -> None:
         """An approval timestamped after the action it's supposed to cover
         indicates a reordered trace or an action that ran before approval."""

@@ -260,10 +260,11 @@ def _consume_matching_approval(
 
     Single-use: a consumed approval is removed so it can't silently bless
     every subsequent call to the same tool. Prefers an exact call_id match
-    (the strongest binding a trace can offer); otherwise falls back to the
-    oldest still-pending approval for the tool (FIFO), which is still
-    stronger than the old "any non-expired approval matches forever"
-    behavior since it's consumed on use.
+    (the strongest binding a trace can offer). Otherwise falls back to
+    FIFO by tool name, but prefers the oldest *non-expired* approval over
+    an older expired one -- an expired record sitting ahead of a valid one
+    in the queue shouldn't preempt the valid one just by being older; it
+    should only surface once there's nothing usable left.
     """
     queue = approvals.get(tool)
     if not queue:
@@ -274,6 +275,10 @@ def _consume_matching_approval(
             if candidate.call_id and candidate.call_id == action.call_id:
                 return queue.pop(index)
         return None
+
+    for index, candidate in enumerate(queue):
+        if not candidate.expired:
+            return queue.pop(index)
 
     return queue.pop(0)
 
